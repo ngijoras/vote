@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="description" content="E-Vote Dashboard Pemilihan Ketua RT / Ketua & Wakil Pemuda" />
+
+  <title>E-Vote • Dashboard</title>
+
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/style.css" />
+  
+  <style>
+    /* Styling khusus untuk tombol refresh di topbar */
+    .topbar-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    #btnGlobalRefresh {
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    #btnGlobalRefresh svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.5s ease;
+    }
+    #btnGlobalRefresh.loading svg {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* Sembunyikan teks "Refresh" di layar HP */
+    @media (max-width: 600px) {
+      .mobile-hide { display: none !important; }
+      #btnGlobalRefresh { padding: 8px; border-radius: 50%; }
+    }
+  </style>
+</head>
+
+<body>
+  <noscript>
+    <div style="padding:24px;background:#fee2e2;color:#991b1b;font-family:sans-serif;text-align:center">
+      <strong>JavaScript dinonaktifkan.</strong>
+      Aktifkan JavaScript di browser untuk menggunakan aplikasi E-Vote.
+    </div>
+  </noscript>
+
+  <div id="app">
+    <!-- ================================================== -->
+    <!-- SIDEBAR                                            -->
+    <!-- ================================================== -->
+    <aside class="sidebar" id="sidebar">
+      
+      <!-- LOGO (Bisa diklik untuk kembali ke index.html) -->
+      <a href="index.html" class="brand-mini" title="Kembali ke Beranda">
+        <span class="dot" aria-hidden="true"></span>
+        <span>E-Vote</span>
+      </a>
+
+      <nav id="nav" aria-label="Navigasi utama"></nav>
+
+      <div class="userbox">
+        <div id="userName">—</div>
+        <small id="userRole">—</small>
+        <button class="btn-ghost btn-block" type="button" data-logout>
+          Keluar
+        </button>
+      </div>
+    </aside>
+
+    <!-- ================================================== -->
+    <!-- MAIN CONTENT                                       -->
+    <!-- ================================================== -->
+    <main class="main">
+      <header class="topbar">
+        <button
+          id="btnMenu"
+          class="btn-ghost mobile-only"
+          type="button"
+          aria-label="Buka menu"
+        >
+          ☰
+        </button>
+
+        <h2 id="pageTitle">Dashboard</h2>
+
+        <div class="topbar-actions">
+          <!-- TOMBOL REFRESH GLOBAL -->
+          <button id="btnGlobalRefresh" class="btn-ghost" title="Paksa ambil data terbaru dari server">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span class="mobile-hide">Refresh</span>
+          </button>
+          
+          <div id="clock" class="clock" aria-live="off">—</div>
+        </div>
+      </header>
+
+      <section id="view" class="view" role="main" aria-live="polite">
+        <div class="card text-center" style="padding:40px">
+          <div class="ui-spinner" style="margin:0 auto 16px"></div>
+          <p class="hint">Memuat aplikasi…</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ==================================================== -->
+  <!-- EXTERNAL LIBRARIES                                   -->
+  <!-- ==================================================== -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <!-- ==================================================== -->
+  <!-- APP SCRIPTS (URUTAN WAJIB)                           -->
+  <!-- ==================================================== -->
+  <script src="js/storage.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/cache.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/voice.js"></script>
+  <script src="js/qr.js"></script>
+  <script src="js/sign.js"></script>
+  
+  <!-- Views -->
+  <script src="js/views-admin.js"></script>
+  <script src="js/views-petugas.js"></script>
+  <script src="js/views-bilik.js"></script>
+  
+  <!-- Router (Harus Paling Bawah) -->
+  <script src="js/router.js"></script>
+</body>
+</html>

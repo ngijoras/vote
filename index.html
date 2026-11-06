@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>E-Vote • Pemilihan Ketua Pemuda</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/style.css" />
+
+  <style>
+    /* =========================================
+       LANDING PAGE STYLES
+       ========================================= */
+    :root { --nav-height: 72px; }
+    html { scroll-behavior: smooth; scroll-padding-top: var(--nav-height); }
+    body { background: #f8fafc; overflow-x: hidden; font-family: 'Inter', sans-serif; }
+
+    /* --- NAVBAR --- */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; height: var(--nav-height);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 24px; background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border); z-index: 1000;
+      transition: all 0.3s ease;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.25rem; text-decoration: none; color: var(--text); }
+    .nav-brand .dot { width: 12px; height: 12px; background: linear-gradient(135deg, var(--primary), var(--purple)); border-radius: 50%; }
+    
+    .nav-links { display: flex; gap: 28px; align-items: center; }
+    .nav-links a { text-decoration: none; color: var(--muted); font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; position: relative; }
+    .nav-links a:hover, .nav-links a.active { color: var(--primary); }
+    .nav-links a::after { content: ''; position: absolute; bottom: -6px; left: 0; width: 0%; height: 2px; background: var(--primary); transition: width 0.3s ease; border-radius: 2px; }
+    .nav-links a:hover::after, .nav-links a.active::after { width: 100%; }
+
+    .login-btn-top { background: var(--primary); color: #fff; padding: 10px 24px; border-radius: 999px; font-weight: 600; text-decoration: none; transition: .2s; margin-left: 12px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
+    .login-btn-top:hover { background: var(--primary-600); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3); }
+
+    /* --- USER DROPDOWN (Jika sudah login) --- */
+    .nav-user-dropdown { position: relative; margin-left: 12px; }
+    .nav-user-btn {
+      display: flex; align-items: center; gap: 8px;
+      background: #fff; border: 1px solid var(--border);
+      padding: 8px 16px; border-radius: 999px;
+      font-weight: 600; color: var(--text); cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .nav-user-btn:hover { background: #f8fafc; border-color: var(--primary-soft); }
+    .nav-user-btn svg { width: 16px; height: 16px; color: var(--muted); transition: transform 0.2s ease; }
+    .nav-user-dropdown.active .nav-user-btn svg { transform: rotate(180deg); }
+    
+    .nav-dropdown-menu {
+      position: absolute; top: calc(100% + 10px); right: 0;
+      background: #fff; border-radius: 12px; border: 1px solid var(--border);
+      box-shadow: var(--shadow-lg); min-width: 200px; padding: 8px;
+      opacity: 0; pointer-events: none; transform: translateY(-10px);
+      transition: all 0.2s ease; z-index: 1001;
+      display: flex; flex-direction: column;
+    }
+    .nav-user-dropdown.active .nav-dropdown-menu { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    
+    .nav-dropdown-menu a, .nav-dropdown-menu button {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 8px;
+      text-decoration: none; color: var(--text); font-weight: 500;
+      font-size: 0.9rem; transition: background 0.15s; width: 100%; text-align: left;
+    }
+    .nav-dropdown-menu a:hover, .nav-dropdown-menu button:hover { background: #f1f5f9; }
+    .nav-dropdown-menu button.danger { color: var(--err); }
+    .nav-dropdown-menu button.danger:hover { background: var(--err-soft); }
+    .dropdown-divider { height: 1px; background: var(--border); margin: 6px 0; }
+
+    /* --- MOBILE MENU --- */
+    .menu-toggle { display: none; background: none; border: none; font-size: 1.5rem; color: var(--text); cursor: pointer; padding: 8px; }
+    .mobile-menu { display: none; position: fixed; top: var(--nav-height); left: 0; right: 0; background: #fff; border-bottom: 1px solid var(--border); padding: 16px 24px; flex-direction: column; gap: 16px; z-index: 999; box-shadow: 0 10px 20px rgba(0,0,0,0.05); transform: translateY(-10px); opacity: 0; pointer-events: none; transition: all 0.3s ease; }
+    .mobile-menu.show { display: flex; transform: translateY(0); opacity: 1; pointer-events: auto; }
+    .mobile-menu a, .mobile-menu button { text-decoration: none; color: var(--text); font-weight: 600; font-size: 1rem; padding: 8px 0; border-bottom: 1px solid var(--border); text-align: left; }
+    .mobile-menu button.danger { color: var(--err); border: none; }
+    .mobile-menu .login-btn-top { display: block; text-align: center; margin: 8px 0 0 0; border: none; }
+
+    /* --- HERO SECTION --- */
+    .hero-section { text-align: center; padding: 140px 24px 60px; background: radial-gradient(circle at 50% 0%, rgba(219,234,254,.8), transparent 70%), #fff; border-bottom: 1px solid var(--border); position: relative; }
+    .hero-badge { display: inline-block; padding: 6px 16px; border-radius: 999px; background: var(--primary-50); color: var(--primary-700); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 20px; border: 1px solid var(--primary-soft); }
+    .hero-section h1 { font-size: 2.8rem; margin-bottom: 20px; color: var(--text); letter-spacing: -0.03em; line-height: 1.2; }
+    .hero-section h1 span { background: linear-gradient(135deg, var(--primary), var(--purple)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero-section p { color: var(--muted); font-size: 1.1rem; max-width: 650px; margin: 0 auto; line-height: 1.6; }
+
+    /* --- COUNTDOWN TIMER --- */
+    .countdown-wrapper { max-width: 800px; margin: -30px auto 40px; padding: 0 24px; position: relative; z-index: 10; }
+    .countdown-box { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border-radius: var(--radius-lg); padding: 24px 32px; box-shadow: 0 12px 40px rgba(37, 99, 235, 0.15); border: 1px solid var(--primary-soft); text-align: center; }
+    .countdown-title { font-size: 0.85rem; text-transform: uppercase; font-weight: 800; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 16px; }
+    .countdown-grid { display: flex; justify-content: center; gap: 24px; }
+    .cd-item { text-align: center; }
+    .cd-num { font-size: 3rem; font-weight: 800; line-height: 1; background: linear-gradient(135deg, var(--primary), var(--purple)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-variant-numeric: tabular-nums; }
+    .cd-label { font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--muted); margin-top: 8px; letter-spacing: 0.05em; }
+    .cd-sep { font-size: 3rem; font-weight: 800; color: var(--border); line-height: 1; margin-top: -4px; }
+    .countdown-done { font-size: 1.5rem; font-weight: 800; color: var(--ok); padding: 12px 0; }
+
+    /* --- CONTENT & SECTIONS --- */
+    .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+    .section-header { text-align: center; margin-bottom: 48px; }
+    .section-header h2 { font-size: 1.8rem; font-weight: 800; color: var(--text); margin-bottom: 12px; }
+    .section-header p { color: var(--muted); font-size: 1rem; max-width: 500px; margin: 0 auto; }
+
+    /* --- CANDIDATE CARDS --- */
+    .candidate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+    .c-card { background: #fff; border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.04); border: 1px solid var(--border); transition: transform 0.3s ease, box-shadow 0.3s ease; display: flex; flex-direction: column; }
+    .c-card:hover { transform: translateY(-6px); box-shadow: 0 12px 32px rgba(0,0,0,0.1); }
+    .c-photo-wrap { position: relative; width: 100%; aspect-ratio: 4/3; background: #f1f5f9; overflow: hidden; border-bottom: 1px solid var(--border); }
+    .c-photo { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+    .c-card:hover .c-photo { transform: scale(1.05); }
+    .c-photo-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: #cbd5e1; font-size: 4rem; }
+    .c-badge { position: absolute; top: 16px; left: 16px; background: rgba(15, 23, 42, 0.85); color: #fff; backdrop-filter: blur(4px); padding: 6px 14px; border-radius: 999px; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.05em; }
+    .c-body { padding: 24px; flex: 1; display: flex; flex-direction: column; }
+    .c-name { font-size: 1.4rem; font-weight: 800; margin: 0 0 20px; color: var(--text); }
+    .c-info-group { margin-bottom: 20px; }
+    .c-info-title { font-size: 0.75rem; text-transform: uppercase; font-weight: 800; color: var(--primary); margin-bottom: 6px; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px; }
+    .c-info-text { font-size: 0.95rem; color: var(--text-soft); margin: 0; line-height: 1.6; }
+    .c-info-text ul { padding-left: 20px; margin: 0; }
+    .c-info-text li { margin-bottom: 6px; }
+
+    /* --- SKELETON LOADER --- */
+    .skeleton-card { background: #fff; border-radius: var(--radius-lg); padding: 24px; border: 1px solid var(--border); }
+    .skeleton-img { width: 100%; aspect-ratio: 4/3; background: #e2e8f0; border-radius: 8px; margin-bottom: 20px; animation: pulse 1.5s infinite; }
+    .skeleton-title { height: 24px; background: #e2e8f0; border-radius: 4px; width: 60%; margin-bottom: 16px; animation: pulse 1.5s infinite; }
+    .skeleton-text { height: 14px; background: #e2e8f0; border-radius: 4px; width: 100%; margin-bottom: 8px; animation: pulse 1.5s infinite; }
+    .skeleton-text.short { width: 80%; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    /* --- ERROR STATE --- */
+    .error-state { text-align: center; padding: 40px; background: #fff; border-radius: var(--radius-lg); border: 1px solid var(--err-soft); box-shadow: var(--shadow); max-width: 500px; margin: 0 auto; }
+    .error-state h3 { color: var(--err); margin-bottom: 8px; }
+    .error-state p { color: var(--muted); margin-bottom: 20px; font-size: 0.9rem; }
+
+    /* --- TIMELINE & GUIDE --- */
+    .timeline { position: relative; max-width: 800px; margin: 0 auto; padding: 20px 0; }
+    .timeline::before { content: ''; position: absolute; top: 0; bottom: 0; left: 20px; width: 2px; background: var(--border); }
+    .tl-item { position: relative; padding-left: 60px; margin-bottom: 32px; }
+    .tl-item:last-child { margin-bottom: 0; }
+    .tl-dot { position: absolute; left: 11px; top: 0; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 4px solid var(--primary); z-index: 1; }
+    .tl-item.done .tl-dot { background: var(--primary); }
+    .tl-content { background: #fff; padding: 20px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+    .tl-content h4 { font-size: 1.1rem; margin-bottom: 4px; color: var(--text); }
+    .tl-content p { font-size: 0.9rem; color: var(--muted); margin: 0; }
+    .guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+    .guide-card { background: #fff; padding: 32px 24px; border-radius: var(--radius-lg); border: 1px solid var(--border); text-align: center; transition: .3s; }
+    .guide-card:hover { border-color: var(--primary-soft); background: #fafcff; }
+    .guide-icon { width: 60px; height: 60px; margin: 0 auto 16px; background: var(--primary-50); color: var(--primary); border-radius: 16px; display: grid; place-items: center; font-size: 1.8rem; font-weight: 800; }
+    .guide-card h4 { font-size: 1.1rem; margin-bottom: 8px; color: var(--text); }
+    .guide-card p { font-size: 0.9rem; color: var(--muted); margin: 0; line-height: 1.5; }
+
+    /* --- FEEDBACK SECTION --- */
+    .feedback-section { background: #fff; padding: 80px 24px; border-top: 1px solid var(--border); }
+    .feedback-box { max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 40px; border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: var(--shadow); }
+    .feedback-box h2 { text-align: center; font-size: 1.8rem; margin-bottom: 8px; color: var(--text); }
+    .feedback-box p { text-align: center; color: var(--muted); font-size: 0.95rem; margin-bottom: 32px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-soft); margin-bottom: 8px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 0.95rem; background: #fff; transition: all 0.2s; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37,99,235,0.1); }
+    .form-group textarea { resize: vertical; min-height: 120px; }
+    .btn-submit { width: 100%; padding: 16px; background: var(--primary); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.2s; box-shadow: var(--shadow-primary); }
+    .btn-submit:hover { background: var(--primary-600); transform: translateY(-2px); }
+    .btn-submit:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+    /* --- FOOTER --- */
+    .footer { text-align: center; padding: 40px 24px; color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--border); background: #fff; }
+
+    /* --- RESPONSIVE --- */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .menu-toggle { display: block; }
+      .hero-section h1 { font-size: 2rem; }
+      .candidate-grid { grid-template-columns: 1fr; }
+      .feedback-box { padding: 24px 16px; }
+      .timeline::before { left: 16px; }
+      .tl-item { padding-left: 48px; }
+      .tl-dot { left: 7px; }
+      .countdown-grid { gap: 12px; }
+      .cd-num { font-size: 2rem; }
+      .cd-sep { font-size: 2rem; }
+      .cd-label { font-size: 0.65rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar" id="navbar">
+    <a href="#" class="nav-brand"><span class="dot"></span> E-Vote</a>
+    
+    <div class="nav-links">
+      <a href="#hero" class="active">Beranda</a>
+      <a href="#kandidat">Kandidat</a>
+      <a href="#jadwal">Jadwal</a>
+      <a href="#panduan">Panduan</a>
+      <a href="#kritik-saran">Kritik & Saran</a>
+      
+      <!-- TAMPILAN JIKA BELUM LOGIN -->
+      <a href="login.html" class="login-btn-top" id="navLoginBtn">Masuk / Login</a>
+      
+      <!-- TAMPILAN JIKA SUDAH LOGIN (Dropdown) -->
+      <div class="nav-user-dropdown" id="navUserDropdown" style="display: none;">
+        <button class="nav-user-btn" id="navUserBtn">
+          <span id="navUserName">User</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="nav-dropdown-menu">
+          <a href="#" id="navDashLink">📊 Dashboard</a>
+          <div class="dropdown-divider"></div>
+          <button id="navLogoutBtn" class="danger">🚪 Keluar</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
+  </nav>
+
+  <!-- MOBILE MENU -->
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="#hero">Beranda</a>
+    <a href="#kandidat">Kandidat</a>
+    <a href="#jadwal">Jadwal</a>
+    <a href="#panduan">Panduan</a>
+    <a href="#kritik-saran">Kritik & Saran</a>
+    
+    <!-- Mobile Tampilan Login -->
+    <a href="login.html" class="login-btn-top" id="mobLoginBtn">Masuk / Login</a>
+    
+    <!-- Mobile Tampilan User -->
+    <div id="mobUserMenu" style="display: none; flex-direction: column; gap: 8px;">
+      <a href="#" id="mobDashLink">📊 Dashboard</a>
+      <button id="mobLogoutBtn" class="danger">🚪 Keluar</button>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <header class="hero-section" id="hero">
+    <span class="hero-badge">PILIHAN RAKYAT 2026</span>
+    <h1>Kenali Calon <span>Pemimpin Anda</span></h1>
+    <p>Mari sukseskan pemilihan Ketua RT & Ketua/Wakil Pemuda. Kenali visi, misi, dan profil para calon sebelum memberikan hak suara Anda.</p>
+  </header>
+
+  <!-- COUNTDOWN TIMER -->
+  <div class="countdown-wrapper">
+    <div class="countdown-box">
+      <div class="countdown-title" id="timerTitle">Menuju Hari Pemungutan Suara</div>
+      <div id="timerDisplay" class="countdown-grid">
+        <div class="cd-item"><div class="cd-num">00</div><div class="cd-label">Hari</div></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-item"><div class="cd-num">00</div><div class="cd-label">Jam</div></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-item"><div class="cd-num">00</div><div class="cd-label">Menit</div></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-item"><div class="cd-num">00</div><div class="cd-label">Detik</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KANDIDAT -->
+  <main class="container" id="kandidat">
+    <div class="section-header">
+      <h2>Profil Kandidat</h2>
+      <p>Berikut adalah daftar calon pemimpin yang siap mengabdi untuk lingkungan kita.</p>
+    </div>
+
+    <div id="loadingState" class="candidate-grid">
+      <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
+      <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
+      <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
+    </div>
+
+    <div id="errorState" style="display: none;">
+      <div class="error-state">
+        <h3>Gagal Memuat Data</h3>
+        <p>Terjadi kesalahan sistem atau koneksi internet terputus.</p>
+        <button onclick="loadCandidates()" class="btn-submit" style="width: auto; padding: 10px 24px;">Coba Lagi</button>
+      </div>
+    </div>
+    
+    <div id="candidatesArea" style="display: none;">
+      <section id="section-rt" style="display:none; margin-bottom: 48px;">
+        <h3 style="font-size: 1.3rem; margin-bottom: 24px; border-left: 4px solid var(--primary); padding-left: 12px;">Calon Ketua RT</h3>
+        <div class="candidate-grid" id="grid-rt"></div>
+      </section>
+      <section id="section-pemuda" style="display:none;">
+        <h3 style="font-size: 1.3rem; margin-bottom: 24px; border-left: 4px solid var(--purple); padding-left: 12px;">Calon Ketua & Wakil Pemuda</h3>
+        <div class="candidate-grid" id="grid-pemuda"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- JADWAL -->
+  <section style="background: #fff; padding: 80px 24px; border-top: 1px solid var(--border);" id="jadwal">
+    <div class="container">
+      <div class="section-header">
+        <h2>Jadwal & Tahapan Pemilihan</h2>
+        <p>Proses pemilihan dilakukan secara transparan dan akuntabel.</p>
+      </div>
+      <div class="timeline">
+        <div class="tl-item done"><div class="tl-dot"></div><div class="tl-content"><h4>1. Pendaftaran Calon</h4><p>Pendaftaran calon Ketua RT & Ketua Pemuda dibuka.</p></div></div>
+        <div class="tl-item done"><div class="tl-dot"></div><div class="tl-content"><h4>2. Verifikasi & Penetapan</h4><p>Verifikasi berkas syarat pencalonan dan penetapan nomor urut.</p></div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div class="tl-content"><h4>3. Sosialisasi & Kampanye</h4><p>Masa pengenalan visi misi calon kepada warga.</p></div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div class="tl-content"><h4>4. Pemungutan Suara</h4><p>Pencoblosan / pemungutan suara serentak di Balai RW.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANDUAN -->
+  <section class="container" id="panduan">
+    <div class="section-header">
+      <h2>Panduan Memilih</h2>
+      <p>Ikuti langkah mudah berikut untuk memberikan hak suara Anda.</p>
+    </div>
+    <div class="guide-grid">
+      <div class="guide-card"><div class="guide-icon">1</div><h4>Bawa Undangan</h4><p>Datang ke lokasi dengan membawa undangan fisik berisi QR Code pemilih.</p></div>
+      <div class="guide-card"><div class="guide-icon">2</div><h4>Absensi & TTD</h4><p>Tunjukkan QR Code ke petugas, lalu tanda tangan secara digital di layar.</p></div>
+      <div class="guide-card"><div class="guide-icon">3</div><h4>Ke Bilik Suara</h4><p>Tunggu nama Anda dipanggil oleh sistem, lalu masuk ke bilik yang kosong.</p></div>
+    </div>
+  </section>
+
+  <!-- FEEDBACK -->
+  <section class="feedback-section" id="kritik-saran">
+    <div class="feedback-box">
+      <h2>Kritik & Saran</h2>
+      <p>Punya masukan untuk kelancaran pemilihan? Sampaikan kepada panitia.</p>
+      <form id="feedbackForm">
+        <div class="form-group">
+          <label for="fbName">Nama (Opsional)</label>
+          <input type="text" id="fbName" placeholder="Kosongkan jika ingin anonim">
+        </div>
+        <div class="form-group">
+          <label for="fbCategory">Kategori</label>
+          <select id="fbCategory">
+            <option value="Umum">Umum</option>
+            <option value="Kritik">Kritik</option>
+            <option value="Saran">Saran</option>
+            <option value="Pertanyaan">Pertanyaan</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="fbMessage">Pesan / Masukan <span style="color:var(--err)">*</span></label>
+          <textarea id="fbMessage" required placeholder="Tuliskan pesan Anda di sini..."></textarea>
+        </div>
+        <button type="submit" class="btn-submit" id="btnSubmitFeedback">Kirim Pesan</button>
+      </form>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <p>© <span id="year"></span> Panitia Pemilihan • Sistem E-Vote</p>
+  </footer>
+
+  <script src="js/storage.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    /* =========================================
+       1. CEK STATUS LOGIN (NAVBAR & MOBILE)
+       ========================================= */
+    function checkLoginStatus() {
+      if (window.API && API.isLoggedIn && API.isLoggedIn()) {
+        const user = API.user();
+        const userName = user.name || user.username || 'User';
+        
+        // Tentukan path dashboard berdasarkan role
+        let dashPath = 'app.html';
+        if (user.role === 'admin') dashPath += '#/admin';
+        else if (user.role === 'petugas') dashPath += '#/petugas';
+        else if (user.role === 'bilik') dashPath += '#/bilik';
+
+        // --- Desktop ---
+        const loginBtn = document.getElementById('navLoginBtn');
+        const userDropdown = document.getElementById('navUserDropdown');
+        if (loginBtn) loginBtn.style.display = 'none';
+        if (userDropdown) {
+          userDropdown.style.display = 'block';
+          document.getElementById('navUserName').textContent = userName;
+          document.getElementById('navDashLink').href = dashPath;
+        }
+
+        // --- Mobile ---
+        const mobLoginBtn = document.getElementById('mobLoginBtn');
+        const mobUserMenu = document.getElementById('mobUserMenu');
+        if (mobLoginBtn) mobLoginBtn.style.display = 'none';
+        if (mobUserMenu) {
+          mobUserMenu.style.display = 'flex';
+          document.getElementById('mobDashLink').href = dashPath;
+        }
+
+        // --- Logout Handlers ---
+        const logoutHandler = (e) => {
+          e.preventDefault();
+          if (window.UI && UI.confirm) {
+             UI.confirm('Keluar dari aplikasi?', { okLabel: 'Ya, Keluar' }).then(ok => {
+               if (ok) API.logout();
+             });
+          } else {
+             if (confirm('Keluar dari aplikasi?')) API.logout();
+          }
+        };
+        
+        const desktopLogout = document.getElementById('navLogoutBtn');
+        const mobileLogout = document.getElementById('mobLogoutBtn');
+        if (desktopLogout) desktopLogout.addEventListener('click', logoutHandler);
+        if (mobileLogout) mobileLogout.addEventListener('click', logoutHandler);
+
+      } else {
+        // Belum login -> pastikan tombol tamu tampil
+        document.getElementById('navLoginBtn').style.display = 'inline-block';
+        document.getElementById('mobLoginBtn').style.display = 'block';
+        document.getElementById('navUserDropdown').style.display = 'none';
+        document.getElementById('mobUserMenu').style.display = 'none';
+      }
+    }
+    checkLoginStatus();
+
+    // Toggle Dropdown Desktop
+    const navUserBtn = document.getElementById('navUserBtn');
+    const navUserDropdown = document.getElementById('navUserDropdown');
+    if (navUserBtn) {
+      navUserBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navUserDropdown.classList.toggle('active');
+      });
+      // Klik di luar untuk menutup
+      document.addEventListener('click', (e) => {
+        if (navUserDropdown && !navUserDropdown.contains(e.target)) {
+          navUserDropdown.classList.remove('active');
+        }
+      });
+    }
+
+    /* =========================================
+       2. COUNTDOWN TIMER
+       ========================================= */
+    let timerInterval = null;
+    async function loadTimer() {
+      try {
+        const res = await API.getPublicSettings();
+        if (res.success && res.data && res.data.election_date) {
+          const targetDate = new Date(res.data.election_date).getTime();
+          if (isNaN(targetDate)) return;
+          if (timerInterval) clearInterval(timerInterval);
+          
+          function updateTimer() {
+            const distance = targetDate - new Date().getTime();
+            if (distance < 0) {
+              clearInterval(timerInterval);
+              document.getElementById('timerTitle').textContent = "Status Pemilihan";
+              document.getElementById('timerDisplay').innerHTML = `<div class="countdown-done">PEMUNGUTAN SUARA SEDANG/TELAH BERLANGSUNG</div>`;
+              return;
+            }
+            const d = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((distance % (1000 * 60)) / 1000);
+            document.getElementById('timerDisplay').innerHTML = `
+              <div class="cd-item"><div class="cd-num">${String(d).padStart(2,'0')}</div><div class="cd-label">Hari</div></div>
+              <div class="cd-sep">:</div>
+              <div class="cd-item"><div class="cd-num">${String(h).padStart(2,'0')}</div><div class="cd-label">Jam</div></div>
+              <div class="cd-sep">:</div>
+              <div class="cd-item"><div class="cd-num">${String(m).padStart(2,'0')}</div><div class="cd-label">Menit</div></div>
+              <div class="cd-sep">:</div>
+              <div class="cd-item"><div class="cd-num">${String(s).padStart(2,'0')}</div><div class="cd-label">Detik</div></div>
+            `;
+          }
+          updateTimer();
+          timerInterval = setInterval(updateTimer, 1000);
+        }
+      } catch (err) {}
+    }
+    loadTimer();
+
+    /* =========================================
+       3. MOBILE MENU & SCROLL SPY
+       ========================================= */
+    const menuToggle = document.getElementById('menuToggle');
+    const mobileMenu = document.getElementById('mobileMenu');
+    menuToggle.addEventListener('click', () => {
+      mobileMenu.classList.toggle('show');
+      menuToggle.textContent = mobileMenu.classList.contains('show') ? '✕' : '☰';
+    });
+    
+    document.querySelectorAll('.mobile-menu a[href^="#"]').forEach(link => {
+      link.addEventListener('click', () => {
+        mobileMenu.classList.remove('show');
+        menuToggle.textContent = '☰';
+      });
+    });
+
+    const sections = document.querySelectorAll('section[id], header[id]');
+    const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        if (window.scrollY >= section.offsetTop - 150) current = section.getAttribute('id');
+      });
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+      });
+      document.getElementById('navbar').style.boxShadow = window.scrollY > 10 ? '0 4px 20px rgba(0,0,0,0.05)' : 'none';
+    });
+
+    /* =========================================
+       4. LOAD CANDIDATES
+       ========================================= */
+    async function loadCandidates() {
+      const loader = document.getElementById('loadingState');
+      const errorBox = document.getElementById('errorState');
+      const area = document.getElementById('candidatesArea');
+      
+      loader.style.display = 'grid';
+      errorBox.style.display = 'none';
+      area.style.display = 'none';
+
+      try {
+        const res = await API.getPublicCandidates();
+        if (!res || !res.success || !res.groups) throw new Error('Invalid response');
+        
+        await new Promise(r => setTimeout(r, 500));
+
+        loader.style.display = 'none';
+        area.style.display = 'block';
+        const groups = res.groups;
+        
+        const renderCard = (c) => {
+          const imgHtml = c.photoUrl 
+            ? `<img src="${c.photoUrl}" alt="${c.name}" class="c-photo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22><rect width=%22400%22 height=%22300%22 fill=%22%23f1f5f9%22/><text x=%2250%25%22 y=%2250%25%22 font-size=%2260%22 text-anchor=%22middle%22 fill=%22%23cbd5e1%22>👤</text></svg>'">` 
+            : `<div class="c-photo-placeholder">👤</div>`;
+          const misiHtml = c.misi ? `<ul>${c.misi.split(';').filter(m=>m.trim()).map(m => `<li>${m.trim()}</li>`).join('')}</ul>` : '<span style="color:var(--muted)">-</span>';
+
+          return `
+            <div class="c-card">
+              <div class="c-photo-wrap">
+                ${imgHtml}
+                <span class="c-badge">NO. ${c.noUrut || '-'}</span>
+              </div>
+              <div class="c-body">
+                <h3 class="c-name">${c.name}</h3>
+                <div class="c-info-group">
+                  <div class="c-info-title">🎯 Visi</div>
+                  <div class="c-info-text">${c.visi || '-'}</div>
+                </div>
+                <div class="c-info-group" style="flex:1">
+                  <div class="c-info-title">🚀 Misi</div>
+                  <div class="c-info-text">${misiHtml}</div>
+                </div>
+              </div>
+            </div>
+          `;
+        };
+
+        let htmlRT = '', htmlPemuda = '';
+        if (groups['ketua_rt'] && groups['ketua_rt'].length > 0) {
+          document.getElementById('section-rt').style.display = 'block';
+          htmlRT = groups['ketua_rt'].map(renderCard).join('');
+          document.getElementById('grid-rt').innerHTML = htmlRT;
+        } else {
+          document.getElementById('section-rt').style.display = 'none';
+        }
+
+        const pemudaCandidates = [...(groups['ketua_pemuda']||[]), ...(groups['wakil_pemuda']||[])];
+        pemudaCandidates.sort((a,b) => Number(a.noUrut) - Number(b.noUrut));
+        if (pemudaCandidates.length > 0) {
+          document.getElementById('section-pemuda').style.display = 'block';
+          htmlPemuda = pemudaCandidates.map(renderCard).join('');
+          document.getElementById('grid-pemuda').innerHTML = htmlPemuda;
+        } else {
+          document.getElementById('section-pemuda').style.display = 'none';
+        }
+
+        if (htmlRT === '' && htmlPemuda === '') {
+          area.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--muted); background: #fff; border-radius: 16px; border: 1px dashed var(--border);"><h3>Belum ada data calon</h3><p>Panitia belum memasukkan data calon ke dalam sistem.</p></div>`;
+        }
+      } catch (err) {
+        loader.style.display = 'none';
+        errorBox.style.display = 'block';
+      }
+    }
+    loadCandidates();
+
+    /* =========================================
+       5. SUBMIT FEEDBACK
+       ========================================= */
+    const fbForm = document.getElementById('feedbackForm');
+    const btnFeedback = document.getElementById('btnSubmitFeedback');
+    fbForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('fbMessage').value.trim();
+      if (!msg) return alert('Pesan tidak boleh kosong!');
+
+      btnFeedback.disabled = true;
+      btnFeedback.textContent = 'Mengirim...';
+      const payload = {
+        name: document.getElementById('fbName').value.trim(),
+        category: document.getElementById('fbCategory').value,
+        message: msg
+      };
+
+      try {
+        const res = await API.post('feedback.save', payload);
+        if (res.success) {
+          alert('Terima kasih! Kritik & saran Anda telah dikirim ke panitia.');
+          fbForm.reset();
+        } else {
+          alert('Gagal mengirim: ' + (res.message || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Terjadi kesalahan jaringan. Coba lagi nanti.');
+      } finally {
+        btnFeedback.disabled = false;
+        btnFeedback.textContent = 'Kirim Pesan';
+      }
+    });
+  </script>
+</body>
+</html>
