@@ -103,7 +103,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  SETTINGS
+   *  SETTINGS (Dengan TTD Digital)
    * ============================================================ */
   async function settings() {
     clearAllPolls();
@@ -130,7 +130,7 @@ window.ViewsAdmin = (function () {
       <div class="row-between mb-3">
         <div>
           <h3>Pengaturan Sistem</h3>
-          <p class="hint">Atur jadwal pemilihan dan konfigurasi E-Vote.</p>
+          <p class="hint">Atur jadwal pemilihan, TTD digital, dan konfigurasi E-Vote.</p>
         </div>
       </div>
       
@@ -151,24 +151,55 @@ window.ViewsAdmin = (function () {
           <input type="text" class="input" name="invitation_signer" value="${esc(settingsMap.invitation_signer || 'Ketua Panitia')}">
         </label>
 
-        <button type="submit" class="btn-primary mt-3">💾 Simpan Pengaturan</button>
+        <!-- TAMBAHAN: TTD DIGITAL -->
+        <label class="field">
+          <span>Tanda Tangan Ketua Panitia (Untuk Undangan)</span>
+          <div id="sigPadSettings" style="border: 1px dashed var(--border); border-radius: 12px; margin-bottom: 8px; background:#fff;"></div>
+          <div class="row" style="margin-top:4px">
+            <button type="button" class="btn-ghost btn-sm" id="btnClearSig">Hapus TTD</button>
+          </div>
+        </label>
+
+        <button type="submit" class="btn-primary mt-3" id="btnSaveSettings">💾 Simpan Pengaturan</button>
       </form>
     `;
 
+    // Setup TTD Pad
+    const sigHost = document.getElementById('sigPadSettings');
+    const sigPad = Sign.mount(sigHost);
+    
+    // Load TTD lama jika ada
+    if (settingsMap.invitation_signature && settingsMap.invitation_signature.length > 100) {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = sigPad.getCanvas();
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      };
+      img.src = settingsMap.invitation_signature;
+    }
+
+    document.getElementById('btnClearSig').onclick = () => sigPad.clear();
+
     document.getElementById('settingsForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn = e.target.querySelector('button');
+      const btn = document.getElementById('btnSaveSettings');
       btn.disabled = true; btn.textContent = 'Menyimpan...';
 
       const fd = new FormData(e.target);
       const dateVal = fd.get('election_date');
-      
       let isoDate = '';
       if (dateVal) isoDate = new Date(dateVal).toISOString();
+
+      let sigData = settingsMap.invitation_signature || '';
+      if (!sigPad.isEmpty()) {
+        sigData = sigPad.toDataURL('image/png');
+      }
 
       await API.post('settings.save', { key: 'election_date', value: isoDate });
       await API.post('settings.save', { key: 'event_name', value: fd.get('event_name') });
       await API.post('settings.save', { key: 'invitation_signer', value: fd.get('invitation_signer') });
+      await API.post('settings.save', { key: 'invitation_signature', value: sigData });
 
       Cache.clearAll();
       UI.toast('Pengaturan berhasil disimpan', 'success');
@@ -857,7 +888,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  INVITATIONS (Format Surat Formal)
+   *  INVITATIONS (Format Surat Formal + TTD Digital)
    * ============================================================ */
   async function invitations() {
     clearAllPolls();
@@ -876,12 +907,13 @@ window.ViewsAdmin = (function () {
     
     const voters = r.data || [];
     let signerName = me().name || 'Ketua Panitia';
-    let ketuaName = 'Ketua RAS'; 
-
+    let signerSignature = ''; 
+    
     if (st.success && st.data) {
       const map = {};
       st.data.forEach(s => map[s.key] = s.value);
       signerName = map.invitation_signer || signerName;
+      signerSignature = map.invitation_signature || '';
     }
 
     const area = document.getElementById('invArea');
@@ -945,17 +977,21 @@ window.ViewsAdmin = (function () {
             </div>
             
             <div class="surat-ttd">
-              <!-- Kiri: QR Code menimpa Ketua RAS -->
+              <!-- KIRI: Area Scan Pemilih -->
               <div class="ttd-box">
-                <div class="ttd-jabatan">Ketua RAS,</div>
-                <div class="qr-wrapper" id="qr-${esc(v.id)}"></div>
-                <div class="ttd-nama">${esc(ketuaName)}</div>
+                <div class="ttd-jabatan" style="font-weight:bold; margin-bottom: 6px;">Scan Pemilih</div>
+                <div class="qr-scan-wrapper">
+                  <div class="qr-image" id="qr-${esc(v.id)}"></div>
+                  <div class="qr-code-text">${esc(v.code)}</div>
+                </div>
               </div>
               
-              <!-- Kanan: TTD Ketua Panitia -->
+              <!-- KANAN: TTD Ketua Panitia -->
               <div class="ttd-box">
                 <div class="ttd-jabatan">Hormat kami,<br>Ketua Panitia</div>
-                <div style="height: 55px;"></div>
+                <div class="ttd-space">
+                  ${signerSignature ? `<img src="${signerSignature}" alt="TTD">` : ''}
+                </div>
                 <div class="ttd-nama">${esc(signerName)}</div>
               </div>
             </div>
@@ -968,7 +1004,7 @@ window.ViewsAdmin = (function () {
     voters.forEach(v => {
       const qrEl = document.getElementById('qr-' + v.id);
       if (qrEl) try { 
-        QR.generate(qrEl, v.code, 90);
+        QR.generate(qrEl, v.code, 85); // Ukuran QR disesuaikan
       } catch (e) { console.error('QR Error', e); }
     });
   }
