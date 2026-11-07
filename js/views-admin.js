@@ -1,5 +1,5 @@
 /* ============================================================
-   E-VOTE • views-admin.js (FULL FIX - MODE TUNGGAL/GANDA)
+   E-VOTE • views-admin.js (FULL FIX - FINAL)
    Role: ADMIN
    ============================================================ */
 window.ViewsAdmin = (function () {
@@ -108,7 +108,6 @@ window.ViewsAdmin = (function () {
     
     let list = res.data || [];
     
-    // Isi Dropdown Filter RT
     const filterRt = document.getElementById('voterFilterRt');
     if (filterRt && filterRt.options.length <= 1) {
       const rts = [...new Set(list.map(v => String(v.rt || '').trim()))].filter(rt => rt !== '').sort();
@@ -120,7 +119,6 @@ window.ViewsAdmin = (function () {
       });
     }
 
-    // Filter Data
     const keyword = (document.getElementById('voterSearch').value || '').trim().toLowerCase();
     const selectedRt = filterRt ? filterRt.value : '';
 
@@ -898,7 +896,11 @@ window.ViewsAdmin = (function () {
       const row = UI.el('div', { style: 'border:1px solid #e2e8f0; padding:12px; border-radius:8px; background:#fafbfc;' });
       row.innerHTML = `
         <label class="field"><span>${label || 'Nama Penandatangan'}</span><input class="input signerName" placeholder="Nama"></label>
-        <div class="signerPad" style="background:#fff; border:1px dashed #cbd5e1; border-radius:8px;"></div>
+        <div class="signerPad" style="background:#fff; border:1px dashed #cbd5e1; border-radius:8px; margin-bottom:8px;"></div>
+        <div class="row" style="margin-top:0; gap:8px;">
+          <button class="btn-ghost btn-sm btn-undo-pad" type="button">↩️ Undo</button>
+          <button class="btn-ghost btn-sm btn-clear-pad" type="button">🧹 Hapus</button>
+        </div>
       `;
       container.appendChild(row);
 
@@ -906,6 +908,11 @@ window.ViewsAdmin = (function () {
       setTimeout(() => {
         if (window.Sign) {
           const pad = Sign.mount(padHost);
+          
+          // Tombol Undo & Hapus
+          row.querySelector('.btn-undo-pad').onclick = () => pad.undo && pad.undo();
+          row.querySelector('.btn-clear-pad').onclick = () => pad.clear && pad.clear();
+
           sigPads.push({ nameInput: row.querySelector('.signerName'), pad: pad });
         }
       }, 50);
@@ -1006,6 +1013,7 @@ window.ViewsAdmin = (function () {
       <label class="field"><span>Tanda Tangan Digital</span><div id="sigPadSettings" style="max-width:600px"></div></label>
       <div class="row">
         <button class="btn-ghost btn-sm" id="btnSigClear" type="button">🧹 Hapus TTD</button>
+        <button class="btn-ghost btn-sm" id="btnSigUndo" type="button">↩️ Undo</button>
         <button class="btn-ghost btn-sm" id="btnSigUpload" type="button">📎 Upload TTD</button>
         <input type="file" id="sigFileInput" accept="image/*" style="display:none">
       </div>
@@ -1025,6 +1033,8 @@ window.ViewsAdmin = (function () {
     }
 
     const btnClear = document.getElementById('btnSigClear'); if (btnClear) btnClear.onclick = () => sigPad && sigPad.clear();
+    const btnUndo = document.getElementById('btnSigUndo'); if (btnUndo) btnUndo.onclick = () => sigPad && sigPad.undo && sigPad.undo();
+    
     const btnUpload = document.getElementById('btnSigUpload'); const fileInput = document.getElementById('sigFileInput');
     if (btnUpload && fileInput) {
       btnUpload.onclick = () => fileInput.click();

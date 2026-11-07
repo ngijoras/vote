@@ -1,16 +1,7 @@
 /* ============================================================
-   E-VOTE • sign.js (FULL FIX)
+   E-VOTE • sign.js (FULL FIX - UNDO & CLEAR SUPPORT)
    DPR-aware canvas signature pad.
-
-   Perbaikan:
-   - DPR handling konsisten di semua method
-   - Resize tidak menghilangkan konten (redraw dari snapshot)
-   - isEmpty() benar (cek alpha pixel)
-   - Clear() reset transform dengan benar
-   - getBase64() / getBlob() export dengan quality
-   - destroy() bersihkan listener & memory
-   - Support mounting di container hidden (defer mount)
-   - Tidak throw ke pemanggil
+   Export: toDataURL() legacy | getBase64() JPEG DataURL
    ============================================================ */
 window.Sign = (function () {
   'use strict';
@@ -25,7 +16,6 @@ window.Sign = (function () {
   function mount(container) {
     if (!container) {
       console.warn('[Sign] container required');
-      // Return stub agar tidak crash pemanggil
       return createStub();
     }
     container.innerHTML = '';
@@ -50,8 +40,9 @@ window.Sign = (function () {
     let hasDraw = false;
     let destroyed = false;
     let resizeTimer = null;
+    let history = []; // Menyimpan riwayat coretan untuk Undo
 
-    /* ---------- Snapshot / restore ---------- */
+    /* ---------- Snapshot / Restore ---------- */
     function snapshot() {
       if (!hasDraw) return null;
       try { return canvas.toDataURL('image/png'); }
@@ -70,7 +61,7 @@ window.Sign = (function () {
       img.src = snap;
     }
 
-    /* ---------- DPR setup ---------- */
+    /* ---------- DPR Setup ---------- */
     function setupCanvas() {
       if (destroyed) return;
       const rect = canvas.getBoundingClientRect();
@@ -78,13 +69,11 @@ window.Sign = (function () {
       const w = Math.max(Math.round(rect.width * dpr), 1);
       const h = Math.max(Math.round(rect.height * dpr), 1);
 
-      // Simpan konten lama jika ada
       const oldContent = snapshot();
 
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
 
-      // Reset transform dulu
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
       ctx.lineWidth = 2.5;
@@ -93,23 +82,19 @@ window.Sign = (function () {
       ctx.strokeStyle = '#0f172a';
       ctx.fillStyle = '#ffffff';
 
-      // Fill background (koordinat CSS px, bukan device px)
       ctx.fillRect(0, 0, rect.width, rect.height);
 
-      // Restore konten jika ada
       if (oldContent) restore(oldContent);
     }
 
-    // Defer jika container masih hidden (width = 0)
+    // Defer jika container masih hidden
     if (container.offsetWidth === 0) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(setupCanvas);
-      });
+      requestAnimationFrame(() => requestAnimationFrame(setupCanvas));
     } else {
       setupCanvas();
     }
 
-    /* ---------- Resize handler ---------- */
+    /* ---------- Resize Handler ---------- */
     function onResize() {
       if (destroyed) return;
       if (resizeTimer) clearTimeout(resizeTimer);
@@ -117,7 +102,7 @@ window.Sign = (function () {
     }
     window.addEventListener('resize', onResize);
 
-    /* ---------- Position helper ---------- */
+    /* ---------- Position Helper ---------- */
     function getPos(e) {
       const rect = canvas.getBoundingClientRect();
       let cx, cy;
@@ -134,10 +119,16 @@ window.Sign = (function () {
       return { x: cx - rect.left, y: cy - rect.top };
     }
 
-    /* ---------- Draw handlers ---------- */
+    /* ---------- Draw Handlers ---------- */
     function start(e) {
       if (destroyed) return;
       e.preventDefault();
+      
+      // Simpan state ke history sebelum mulai menggambar baru
+      if (hasDraw) {
+        try { history.push(canvas.toDataURL('image/png')); } catch (_) {}
+      }
+
       drawing = true;
       const p = getPos(e);
       lastX = p.x;
@@ -165,7 +156,7 @@ window.Sign = (function () {
       drawing = false;
     }
 
-    /* ---------- Event binding ---------- */
+    /* ---------- Event Binding ---------- */
     canvas.addEventListener('mousedown', start);
     canvas.addEventListener('mousemove', draw);
     canvas.addEventListener('mouseup', stop);
@@ -186,10 +177,8 @@ window.Sign = (function () {
           const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
           // Cek apakah ada pixel non-transparent & non-white
           for (let i = 0; i < d.length; i += 4) {
-            // skip jika alpha = 0
-            if (d[i + 3] === 0) continue;
-            // skip putih murni (background fill)
-            if (d[i] === 255 && d[i + 1] === 255 && d[i + 2] === 255) continue;
+            if (d[i + 3] === 0) continue; // Alpha 0 (transparan)
+            if (d[i] === 255 && d[i + 1] === 255 && d[i + 2] === 255) continue; // Putih
             return true;
           }
           return false;
@@ -211,6 +200,32 @@ window.Sign = (function () {
         ctx.fillStyle = '#0f172a';
         ctx.strokeStyle = '#0f172a';
         hasDraw = false;
+        history = []; // Reset history
+      },
+
+      undo: function () {
+        if (destroyed || history.length === 0) return;
+        
+        const prevState = history.pop();
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, rect.width, rect.height);
+        
+        if (prevState) {
+          const img = new Image();
+          img.onload = function () {
+            if (destroyed) return;
+            try { ctx.drawImage(img, 0, 0, rect.width, rect.height); } catch (_) {}
+          };
+          img.src = prevState;
+          hasDraw = true;
+        } else {
+          hasDraw = false;
+        }
       },
 
       /* LEGACY: untuk attendance (<= 47k chars) */
@@ -251,7 +266,7 @@ window.Sign = (function () {
         });
       },
 
-      /* NEW: Blob JPEG (opsional untuk FormData path) */
+      /* NEW: Blob JPEG (opsional) */
       getBlob: function () {
         return new Promise(function (resolve, reject) {
           if (destroyed) { reject(new Error('Sign pad destroyed')); return; }
@@ -286,13 +301,14 @@ window.Sign = (function () {
   }
 
   /* ============================================================
-   *  STUB (jika container invalid)
+   *  STUB (Jika container invalid)
    * ============================================================ */
   function createStub() {
     return {
       hasContent: function () { return false; },
       isEmpty: function () { return true; },
       clear: function () {},
+      undo: function () {},
       toDataURL: function () { return ''; },
       getBase64: function () { return Promise.resolve(''); },
       getBlob: function () { return Promise.reject(new Error('No canvas')); },
