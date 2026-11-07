@@ -21,6 +21,7 @@ window.ViewsAdmin = (function () {
     return (prefix || 'V') + Date.now().toString(36).toUpperCase().slice(-6) + Math.random().toString(36).slice(2, 4).toUpperCase();
   }
 
+  /* ---------- Polling ---------- */
   const polls = {};
   function setPoll(id, ms, fn) {
     clearPoll(id);
@@ -32,6 +33,7 @@ window.ViewsAdmin = (function () {
   function clearPoll(id) { if (polls[id]) { clearInterval(polls[id]); delete polls[id]; } }
   function clearAllPolls() { Object.keys(polls).forEach(clearPoll); }
 
+  /* ---------- Image resize ---------- */
   function resizeImageFile(file, maxSize = 300, quality = 0.75) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -56,6 +58,9 @@ window.ViewsAdmin = (function () {
     });
   }
 
+  /* ============================================================
+   *  DASHBOARD
+   * ============================================================ */
   async function dashboard() {
     clearAllPolls();
     const el = view();
@@ -97,6 +102,9 @@ window.ViewsAdmin = (function () {
     }
   }
 
+  /* ============================================================
+   *  SETTINGS (TTD Robust)
+   * ============================================================ */
   async function settings() {
     clearAllPolls();
     const el = view();
@@ -157,9 +165,10 @@ window.ViewsAdmin = (function () {
           
           <div id="sigPadSettings"></div>
           
-          <div class="row" style="margin-top:8px">
-            <button type="button" class="btn-ghost btn-sm" id="btnClearSig">Hapus / Ganti TTD</button>
-            <button type="button" class="btn-ghost btn-sm" id="btnVerifySig">🔍 Test Simpan</button>
+          <div class="row" style="margin-top:8px;">
+            <button type="button" class="btn-ghost btn-sm" id="btnResetCanvas" style="display: none;">↺ Coret Ulang</button>
+            <button type="button" class="btn-danger btn-sm" id="btnDeleteSig" style="display: none;">🗑️ Hapus TTD Tersimpan</button>
+            <button type="button" class="btn-ghost btn-sm" id="btnVerifySig">🔍 Test Coretan</button>
           </div>
         </label>
 
@@ -167,51 +176,76 @@ window.ViewsAdmin = (function () {
       </form>
     `;
 
-    // BERI JEDA agar DOM + Canvas selesai render
     setTimeout(() => {
       const sigHost       = document.getElementById('sigPadSettings');
       const sigPreview    = document.getElementById('sigPreviewArea');
       const sigPreviewImg = document.getElementById('sigPreviewImg');
       const sigSizeInfo   = document.getElementById('sigSizeInfo');
-      const sigPad        = Sign.mount(sigHost);
+      const btnReset      = document.getElementById('btnResetCanvas');
+      const btnDelete     = document.getElementById('btnDeleteSig');
       
+      const sigPad = Sign.mount(sigHost);
       let currentSigData = settingsMap.invitation_signature || '';
 
-      function refreshPreview() {
+      function refreshUI() {
         if (currentSigData && currentSigData.length > 10) {
+          // Mode Preview (Gambar sudah tersimpan)
           sigHost.style.display = 'none';
           sigPreview.style.display = 'block';
           sigPreviewImg.src = currentSigData;
+          
+          btnDelete.style.display = 'inline-block';
+          btnReset.style.display = 'none';
+          
           if (sigSizeInfo) {
             const kb = (currentSigData.length / 1024).toFixed(1);
             sigSizeInfo.textContent = `Tersimpan (${kb} KB dari 47 KB max)`;
             sigSizeInfo.style.color = 'var(--ok)';
           }
         } else {
+          // Mode Coret (Kosong)
           sigHost.style.display = 'block';
           sigPreview.style.display = 'none';
+          
+          btnDelete.style.display = 'none';
+          btnReset.style.display = 'none';
         }
       }
 
-      refreshPreview();
+      refreshUI();
 
-      document.getElementById('btnClearSig').onclick = () => {
+      // Tombol Hapus TTD
+      btnDelete.onclick = async () => {
+        if (!confirm('Hapus TTD yang tersimpan di database?')) return;
+        btnDelete.disabled = true; btnDelete.textContent = 'Menghapus...';
+        
+        await API.post('settings.save', { key: 'invitation_signature', value: '' });
         currentSigData = '';
-        sigPad.clear();
-        refreshPreview();
-        UI.toast('TTD dihapus dari preview. Klik Simpan untuk konfirmasi.', 'info', 3000);
+        Cache.clearAll();
+        
+        btnDelete.disabled = false; btnDelete.textContent = '🗑️ Hapus TTD Tersimpan';
+        UI.toast('TTD dihapus. Silakan coret yang baru.', 'info');
+        refreshUI();
       };
 
+      // Tombol Reset Canvas
+      btnReset.onclick = () => {
+        sigPad.clear();
+        refreshUI();
+      };
+
+      // Tombol Test
       document.getElementById('btnVerifySig').onclick = () => {
         if (sigPad.isEmpty()) {
-          UI.toast('Canvas kosong, tidak ada yang perlu di-test', 'warn');
+          UI.toast('Canvas masih kosong, silakan coret dulu.', 'warn');
           return;
         }
         const data = sigPad.toDataURL();
-        UI.toast(`✅ Canvas terdeteksi: ${(data.length/1024).toFixed(1)} KB. ${data.length > 47000 ? '⚠ TERLALU BESAR!' : 'Aman untuk disimpan.'}`, 
+        UI.toast(`✅ Coretan terdeteksi: ${(data.length/1024).toFixed(1)} KB. ${data.length > 47000 ? '⚠ TERLALU BESAR!' : 'Siap disimpan.'}`, 
                  data.length > 47000 ? 'warn' : 'success', 5000);
       };
 
+      // Submit Form
       document.getElementById('settingsForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btnSaveSettings');
@@ -249,7 +283,7 @@ window.ViewsAdmin = (function () {
           return;
         }
 
-        // VERIFIKASI
+        // Verifikasi
         const verifyRes = await API.post('list', { sheet: 'settings' });
         let verifiedSig = '';
         if (verifyRes.success) {
@@ -262,18 +296,21 @@ window.ViewsAdmin = (function () {
           UI.toast('✅ TTD tersimpan & terverifikasi (' + (verifiedSig.length/1024).toFixed(1) + ' KB)', 'success', 4000);
         } else if (!sigDataToSave && !verifiedSig) {
           currentSigData = '';
-          UI.toast('TTD dihapus dari server', 'info');
+          UI.toast('TTD dikosongkan', 'info');
         } else {
           UI.toast('⚠ TTD gagal terverifikasi. Panjang di server: ' + verifiedSig.length + ' char', 'error', 6000);
         }
 
         Cache.clearAll();
         btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan';
-        refreshPreview();
+        refreshUI();
       });
     }, 150);
   }
 
+  /* ============================================================
+   *  VOTERS
+   * ============================================================ */
   let allVoters = [];
   let voterSearchQ = '';
   let voterSortBy = 'name_asc';
@@ -515,6 +552,9 @@ window.ViewsAdmin = (function () {
     });
   }
 
+  /* ============================================================
+   *  CANDIDATES
+   * ============================================================ */
   let allCandidates = [];
 
   async function candidates() {
@@ -674,6 +714,9 @@ window.ViewsAdmin = (function () {
     await loadCandidates();
   }
 
+  /* ============================================================
+   *  BOOTHS
+   * ============================================================ */
   let allBooths = [];
 
   async function booths() {
@@ -772,6 +815,9 @@ window.ViewsAdmin = (function () {
     await loadBooths();
   }
 
+  /* ============================================================
+   *  USERS
+   * ============================================================ */
   let allUsers = [];
 
   async function users() {
@@ -924,6 +970,9 @@ window.ViewsAdmin = (function () {
     await loadUsers();
   }
 
+  /* ============================================================
+   *  INVITATIONS
+   * ============================================================ */
   let invLayoutMode = '4';
   let invPage = 1;
   const invPerPage = 40;
@@ -1125,6 +1174,9 @@ window.ViewsAdmin = (function () {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'daftar-pemilih.csv'; a.click();
   }
 
+  /* ============================================================
+   *  RESULTS
+   * ============================================================ */
   let lastResultsData = null;
 
   async function results() {
@@ -1194,6 +1246,9 @@ window.ViewsAdmin = (function () {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hasil-pemilihan.csv'; a.click();
   }
 
+  /* ============================================================
+   *  BERITA ACARA
+   * ============================================================ */
   async function beritaAcara() {
     clearAllPolls();
     const el = view();

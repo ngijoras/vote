@@ -1,6 +1,6 @@
 /* ============================================================
    E-VOTE • sign.js
-   Versi Anti-Gagal (mengadopsi absensi.js)
+   Versi Final - DPR aware & super robust
    ============================================================ */
 window.Sign = (function () {
   'use strict';
