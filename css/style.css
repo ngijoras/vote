@@ -105,6 +105,22 @@ textarea { resize: vertical; min-height: 90px; }
 label.field { display: block; margin-bottom: 12px; }
 label.field > span { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
 
+/* ---------- Signature Pad Khusus Pengaturan ---------- */
+#sigPadSettings {
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+#sigPadSettings canvas {
+  border: none !important;
+  background: #ffffff;
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 /* ---------- Cards & Layout ---------- */
 .card { background: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px; border: 1px solid rgba(226, 232, 240, .6); }
 .hint { color: var(--muted); font-size: .9rem; margin: 4px 0; }
@@ -167,19 +183,20 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 
 /* ---------- Invitations (Format Surat Formal) ---------- */
-.invitations-sheet { 
-  display: grid; 
-  grid-template-columns: repeat(2, 1fr); 
-  gap: 10px; 
-}
+.invitations-sheet { display: grid; gap: 10px; }
+.invitations-sheet.layout-4 { grid-template-columns: repeat(2, 1fr); }
+.invitations-sheet.layout-2 { grid-template-columns: 1fr; }
+
 .invite { 
   border: 1px dashed var(--border-strong); 
   padding: 20px; 
   background: #fff; 
-  aspect-ratio: 1 / 1.414; 
   border-radius: var(--radius-sm); 
   overflow: hidden; 
 }
+.layout-4 .invite { aspect-ratio: 1 / 1.414; }
+.layout-2 .invite { aspect-ratio: 1 / 0.707; }
+
 .invite-inner { 
   display: flex; 
   flex-direction: column; 
@@ -195,64 +212,31 @@ tbody tr:last-child td { border-bottom: 0; }
   padding-bottom: 10px; 
   margin-bottom: 20px;
 }
-.kop-surat img { 
-  width: 60px; 
-  height: 60px; 
-  object-fit: contain; 
-  flex-shrink: 0; 
-}
-.kop-text {
-  flex: 1;
-  text-align: center;
-}
-.kop-title { 
-  font-weight: bold; 
-  font-size: 14px; 
-  line-height: 1.2;
-  letter-spacing: 0.5px;
-}
-.kop-sub { 
-  font-size: 11px; 
-  margin-top: 4px;
-}
-.surat-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.surat-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-.surat-tujuan {
-  text-align: left;
-}
-.nama-pemilih {
-  font-size: 14px;
-  text-decoration: underline;
-}
-.surat-isi p {
-  margin-bottom: 10px;
-  text-align: justify;
-}
-.surat-tabel {
-  width: 100%;
-  margin-left: 20px;
-  margin-bottom: 15px;
-  font-size: 12px;
-}
-.surat-tabel td {
-  padding: 2px 0;
-  vertical-align: top;
-}
-.surat-tabel td:nth-child(2) {
-  width: 10px;
-}
+.layout-2 .kop-surat { padding-bottom: 15px; margin-bottom: 30px; }
+.kop-surat img { width: 60px; height: 60px; object-fit: contain; flex-shrink: 0; }
+.layout-2 .kop-surat img { width: 80px; height: 80px; }
 
-/* Area Tanda Tangan & QR Undangan */
+.kop-text { flex: 1; text-align: center; }
+.kop-title { font-weight: bold; font-size: 14px; line-height: 1.2; letter-spacing: 0.5px; }
+.layout-2 .kop-title { font-size: 18px; }
+.kop-sub { font-size: 11px; margin-top: 4px; }
+.layout-2 .kop-sub { font-size: 13px; }
+
+.surat-body { flex: 1; display: flex; flex-direction: column; font-size: 12px; line-height: 1.5; }
+.layout-2 .surat-body { font-size: 14px; line-height: 1.6; }
+
+.surat-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+.surat-tujuan { text-align: left; }
+.nama-pemilih { font-size: 14px; text-decoration: underline; }
+.layout-2 .nama-pemilih { font-size: 16px; }
+
+.surat-isi p { margin-bottom: 10px; text-align: justify; }
+.surat-tabel { width: 100%; margin-left: 20px; margin-bottom: 15px; font-size: 12px; }
+.layout-2 .surat-tabel { font-size: 14px; margin-bottom: 25px; }
+.surat-tabel td { padding: 2px 0; vertical-align: top; }
+.surat-tabel td:nth-child(2) { width: 10px; }
+
+/* Area Tanda Tangan & QR */
 .surat-ttd {
   display: flex;
   justify-content: space-between;
@@ -268,51 +252,21 @@ tbody tr:last-child td { border-bottom: 0; }
   justify-content: flex-end;
   text-align: center;
 }
-.ttd-jabatan {
-  font-size: 12px;
-  margin-bottom: 8px;
-}
-.qr-scan-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-}
-.qr-image {
-  width: 85px;
-  height: 85px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-.qr-image img, .qr-image canvas {
-  width: 100% !important;
-  height: 100% !important;
-}
-.qr-code-text {
-  font-size: 11px;
-  font-weight: bold;
-  margin-top: 6px;
-  letter-spacing: 0.5px;
-}
-.ttd-space {
-  height: 85px;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.ttd-space img {
-  max-height: 100%;
-  max-width: 100%;
-  object-fit: contain;
-}
-.ttd-nama {
-  font-size: 12px;
-  font-weight: bold;
-  text-decoration: underline;
-  margin-top: 6px;
-}
+.ttd-jabatan { font-size: 12px; margin-bottom: 8px; }
+.layout-2 .ttd-jabatan { font-size: 14px; }
+
+.qr-scan-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.qr-image { width: 85px; height: 85px; display: flex; justify-content: center; align-items: center; }
+.layout-2 .qr-image { width: 110px; height: 110px; }
+.qr-image img, .qr-image canvas { width: 100% !important; height: 100% !important; }
+.qr-code-text { font-size: 11px; font-weight: bold; margin-top: 6px; letter-spacing: 0.5px; }
+.layout-2 .qr-code-text { font-size: 13px; }
+
+.ttd-space { height: 85px; width: 100%; display: flex; align-items: center; justify-content: center; }
+.layout-2 .ttd-space { height: 110px; }
+.ttd-space img { max-height: 100%; max-width: 100%; object-fit: contain; }
+.ttd-nama { font-size: 12px; font-weight: bold; text-decoration: underline; margin-top: 6px; }
+.layout-2 .ttd-nama { font-size: 14px; }
 
 /* ---------- Results ---------- */
 .res-group { margin: 16px 0; }
@@ -433,14 +387,57 @@ tbody tr:last-child td { border-bottom: 0; }
 @media print {
   @page { size: A4; margin: 10mm; }
   body { background: #fff; font-size: 12px; }
-  .sidebar, .topbar, .toast-wrap, .modal-backdrop, .no-print, .btn-primary, .btn-ghost, .btn-danger { display: none !important; }
+  .sidebar, .topbar, .toast-wrap, .modal-backdrop, .no-print, .btn-primary, .btn-ghost, .btn-danger, select { display: none !important; }
   #app { display: block; }
   .main { padding: 0; }
   .card { box-shadow: none; border: 1px solid #ddd; page-break-inside: avoid; }
+  
+  /* Aturan cetak untuk halaman undangan */
   body:has(.invitations-sheet) .view > .card, body:has(.invitations-sheet) .main > .topbar { display: none !important; }
   body:has(.invitations-sheet) .main { padding: 0; }
-  body:has(.invitations-sheet) .invitations-sheet { display: grid; grid-template-columns: 95mm 95mm; grid-auto-rows: 138mm; gap: 0; margin: 0; }
-  body:has(.invitations-sheet) .invite { width: 95mm; height: 138mm; aspect-ratio: auto; border: 1px dashed #999; padding: 4mm; break-inside: avoid; page-break-inside: avoid; border-radius: 0; }
+  body:has(.invitations-sheet) .invitations-sheet { gap: 0; margin: 0; }
+  
+  /* A4 dibagi 4 */
+  body:has(.layout-4) .invitations-sheet.layout-4 {
+    display: grid;
+    grid-template-columns: 95mm 95mm;
+    grid-auto-rows: 138mm;
+  }
+  body:has(.layout-4) .layout-4 .invite {
+    width: 95mm;
+    height: 138mm;
+    aspect-ratio: auto;
+    border: 1px dashed #999;
+    padding: 4mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-radius: 0;
+  }
+  body:has(.layout-4) .layout-4 .qr-image { width: 70px; height: 70px; }
+  body:has(.layout-4) .layout-4 .ttd-space { height: 70px; }
+  body:has(.layout-4) .layout-4 .kop-surat img { width: 50px; height: 50px; }
+  body:has(.layout-4) .layout-4 .kop-title { font-size: 12px; }
+  body:has(.layout-4) .layout-4 .surat-body { font-size: 10px; }
+
+  /* A4 dibagi 2 */
+  body:has(.layout-2) .invitations-sheet.layout-2 {
+    display: grid;
+    grid-template-columns: 190mm;
+    grid-auto-rows: 138mm;
+  }
+  body:has(.layout-2) .layout-2 .invite {
+    width: 190mm;
+    height: 138mm;
+    aspect-ratio: auto;
+    border: 1px dashed #999;
+    padding: 10mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-radius: 0;
+  }
+  body:has(.layout-2) .layout-2 .qr-image { width: 100px; height: 100px; }
+  body:has(.layout-2) .layout-2 .ttd-space { height: 100px; }
+  
   .res-bar { grid-template-columns: 120px 1fr 50px; }
   .fill { background: #333 !important; }
 }
