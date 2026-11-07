@@ -166,20 +166,126 @@ tbody tr:last-child td { border-bottom: 0; }
   100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
 }
 
-/* ---------- Invitations ---------- */
-.invitations-sheet { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-.invite { border: 1px dashed var(--border-strong); padding: 12px; background: #fff; aspect-ratio: 1 / 1.414; border-radius: var(--radius-sm); overflow: hidden; }
-.invite-inner { display: flex; flex-direction: column; height: 100%; font-size: .72rem; color: var(--text); }
-.kop { display: flex; gap: 8px; align-items: center; border-bottom: 2px solid #111; padding-bottom: 6px; }
-.kop img { width: 30px; height: 30px; object-fit: contain; flex-shrink: 0; }
-.kop-title { font-weight: 800; font-size: .78rem; letter-spacing: .02em; }
-.kop-sub { font-size: .62rem; color: var(--muted); line-height: 1.2; }
-.inv-head { display: flex; justify-content: space-between; margin: 8px 0; font-size: .68rem; color: var(--text-soft); }
-.inv-body { margin: 5px 0; line-height: 1.4; font-size: .68rem; }
-.inv-qr { margin: auto; text-align: center; padding: 4px; }
-.inv-qr canvas, .inv-qr img { margin: 0 auto; }
-.inv-sign { display: flex; flex-direction: column; align-items: flex-end; margin-top: auto; font-size: .62rem; text-align: center; color: var(--muted); }
-.sign-line { border-bottom: 1px solid #111; margin-top: 22px; width: 90px; }
+/* ---------- Invitations (Format Surat Formal) ---------- */
+.invitations-sheet { 
+  display: grid; 
+  grid-template-columns: repeat(2, 1fr); 
+  gap: 10px; 
+}
+.invite { 
+  border: 1px dashed var(--border-strong); 
+  padding: 20px; 
+  background: #fff; 
+  aspect-ratio: 1 / 1.414; 
+  border-radius: var(--radius-sm); 
+  overflow: hidden; 
+}
+.invite-inner { 
+  display: flex; 
+  flex-direction: column; 
+  height: 100%; 
+  font-family: 'Times New Roman', Times, serif; 
+  color: #000;
+}
+.kop-surat { 
+  display: flex; 
+  gap: 12px; 
+  align-items: center; 
+  border-bottom: 2px solid #000; 
+  padding-bottom: 10px; 
+  margin-bottom: 20px;
+}
+.kop-surat img { 
+  width: 60px; 
+  height: 60px; 
+  object-fit: contain; 
+  flex-shrink: 0; 
+}
+.kop-text {
+  flex: 1;
+  text-align: center;
+}
+.kop-title { 
+  font-weight: bold; 
+  font-size: 14px; 
+  line-height: 1.2;
+  letter-spacing: 0.5px;
+}
+.kop-sub { 
+  font-size: 11px; 
+  margin-top: 4px;
+}
+.surat-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.surat-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.surat-tujuan {
+  text-align: left;
+}
+.nama-pemilih {
+  font-size: 14px;
+  text-decoration: underline;
+}
+.surat-isi p {
+  margin-bottom: 10px;
+  text-align: justify;
+}
+.surat-tabel {
+  width: 100%;
+  margin-left: 20px;
+  margin-bottom: 15px;
+  font-size: 12px;
+}
+.surat-tabel td {
+  padding: 2px 0;
+  vertical-align: top;
+}
+.surat-tabel td:nth-child(2) {
+  width: 10px;
+}
+.surat-ttd {
+  display: flex;
+  justify-content: space-between;
+  margin-top: auto;
+  text-align: center;
+  padding-top: 20px;
+}
+.ttd-box {
+  width: 45%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.ttd-jabatan {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.qr-wrapper {
+  width: 90px;
+  height: 90px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.qr-wrapper img, .qr-wrapper canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+.ttd-nama {
+  font-size: 12px;
+  font-weight: bold;
+  text-decoration: underline;
+  margin-top: 8px;
+}
 
 /* ---------- Results ---------- */
 .res-group { margin: 16px 0; }
@@ -226,26 +332,12 @@ tbody tr:last-child td { border-bottom: 0; }
 /* ---------- App Shell ---------- */
 #app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
 .sidebar { background: var(--bg-elev); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 18px 14px; position: sticky; top: 0; height: 100vh; overflow-y: auto; z-index: 50; }
-
-/* Brand Mini (Logo - Click to Home) */
 .brand-mini {
-  font-weight: 700;
-  font-size: 1.05rem;
-  margin-bottom: 22px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 6px;
-  letter-spacing: -.01em;
-  text-decoration: none;
-  color: var(--text);
+  font-weight: 700; font-size: 1.05rem; margin-bottom: 22px; display: flex; align-items: center; gap: 8px;
+  padding: 0 6px; letter-spacing: -.01em; text-decoration: none; color: var(--text);
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
-.brand-mini:hover {
-  opacity: 0.75;
-  transform: scale(0.98);
-  color: var(--text);
-}
+.brand-mini:hover { opacity: 0.75; transform: scale(0.98); color: var(--text); }
 .brand-mini .dot { width: 10px; height: 10px; background: linear-gradient(135deg, var(--primary), var(--purple)); border-radius: 50%; box-shadow: 0 0 0 4px rgba(37, 99, 235, .12); }
 
 #nav { flex: 1; }
@@ -356,7 +448,6 @@ tbody tr:last-child td { border-bottom: 0; }
   #btnGlobalRefresh { padding: 8px; border-radius: 50%; }
   .topbar-actions { gap: 6px; }
   
-  /* Responsive booth row */
   .booth-row { flex-wrap: wrap; }
   .booth-row .hint { margin-left: 0 !important; width: 100%; margin-top: 4px !important; }
   .booth-row .row { margin-left: 0 !important; width: 100%; justify-content: flex-end; margin-top: 8px; }
