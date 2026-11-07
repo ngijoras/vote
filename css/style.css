@@ -112,6 +112,8 @@ label.field > span { display: block; font-size: .85rem; color: var(--muted); mar
   background: #ffffff;
   overflow: hidden;
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+  user-select: none;
+  -webkit-user-select: none;
 }
 #sigPadSettings canvas {
   border: none !important;
@@ -385,58 +387,68 @@ tbody tr:last-child td { border-bottom: 0; }
 
 /* ---------- Print & Responsive ---------- */
 @media print {
-  @page { size: A4; margin: 10mm; }
+  @page { size: A4; margin: 0; } /* Margin 0 agar presisi mm */
   body { background: #fff; font-size: 12px; }
-  .sidebar, .topbar, .toast-wrap, .modal-backdrop, .no-print, .btn-primary, .btn-ghost, .btn-danger, select { display: none !important; }
-  #app { display: block; }
-  .main { padding: 0; }
-  .card { box-shadow: none; border: 1px solid #ddd; page-break-inside: avoid; }
   
-  /* Aturan cetak untuk halaman undangan */
-  body:has(.invitations-sheet) .view > .card, body:has(.invitations-sheet) .main > .topbar { display: none !important; }
-  body:has(.invitations-sheet) .main { padding: 0; }
-  body:has(.invitations-sheet) .invitations-sheet { gap: 0; margin: 0; }
+  /* Hilangkan UI Dashboard */
+  .sidebar, .topbar, .toast-wrap, .modal-backdrop, .no-print, .btn-primary, .btn-ghost, .btn-danger, select { 
+    display: none !important; 
+  }
+
+  /* KUNCI PERBAIKAN: Jangan pakai grid/block yang salah saat print */
+  #app { display: block !important; min-height: auto; }
+  .main { padding: 0 !important; margin: 0; }
+  .view { min-height: auto; }
+  .card { box-shadow: none; border: none; padding: 0; margin: 0; background: transparent; }
   
-  /* A4 dibagi 4 */
+  /* Sembunyikan area dashboard lainnya, sisakan #invPrintArea */
+  body:has(.invitations-sheet) .view > .card > .row-between { display: none !important; }
+  
+  #invPrintArea { padding: 0 !important; background: transparent !important; }
+
+  /* Layout Cetak A4 dibagi 4 */
   body:has(.layout-4) .invitations-sheet.layout-4 {
-    display: grid;
-    grid-template-columns: 95mm 95mm;
-    grid-auto-rows: 138mm;
+    display: grid !important;
+    grid-template-columns: 105mm 105mm; /* Setengah lebar A4 */
+    grid-auto-rows: 148.5mm; /* Setengah tinggi A4 */
+    gap: 0;
   }
   body:has(.layout-4) .layout-4 .invite {
-    width: 95mm;
-    height: 138mm;
+    width: 105mm;
+    height: 148.5mm;
     aspect-ratio: auto;
-    border: 1px dashed #999;
-    padding: 4mm;
+    border: 1px dashed #ddd;
+    padding: 8mm; /* Margin internal per undangan */
     break-inside: avoid;
     page-break-inside: avoid;
     border-radius: 0;
+    box-sizing: border-box;
   }
-  body:has(.layout-4) .layout-4 .qr-image { width: 70px; height: 70px; }
-  body:has(.layout-4) .layout-4 .ttd-space { height: 70px; }
-  body:has(.layout-4) .layout-4 .kop-surat img { width: 50px; height: 50px; }
-  body:has(.layout-4) .layout-4 .kop-title { font-size: 12px; }
-  body:has(.layout-4) .layout-4 .surat-body { font-size: 10px; }
 
-  /* A4 dibagi 2 */
+  /* Layout Cetak A4 dibagi 2 */
   body:has(.layout-2) .invitations-sheet.layout-2 {
-    display: grid;
-    grid-template-columns: 190mm;
-    grid-auto-rows: 138mm;
+    display: grid !important;
+    grid-template-columns: 210mm;
+    grid-auto-rows: 148.5mm; 
+    gap: 0;
   }
   body:has(.layout-2) .layout-2 .invite {
-    width: 190mm;
-    height: 138mm;
+    width: 210mm;
+    height: 148.5mm;
     aspect-ratio: auto;
-    border: 1px dashed #999;
-    padding: 10mm;
+    border: 1px dashed #ddd;
+    padding: 15mm; /* Margin internal lebih besar */
     break-inside: avoid;
     page-break-inside: avoid;
     border-radius: 0;
+    box-sizing: border-box;
   }
-  body:has(.layout-2) .layout-2 .qr-image { width: 100px; height: 100px; }
-  body:has(.layout-2) .layout-2 .ttd-space { height: 100px; }
+
+  /* Penyesuaian ukuran QR dan TTD saat cetak */
+  .qr-image { width: 70px; height: 70px; }
+  .layout-2 .qr-image { width: 100px; height: 100px; }
+  .ttd-space { height: 70px; }
+  .layout-2 .ttd-space { height: 100px; }
   
   .res-bar { grid-template-columns: 120px 1fr 50px; }
   .fill { background: #333 !important; }
