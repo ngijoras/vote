@@ -297,7 +297,6 @@ tbody tr:last-child td { border-bottom: 0; }
    INVITATIONS (SISTEM MASTER A4 + CSS GRID YANG AMAN)
    ========================================================= */
 
-/* Container utama */
 .invitations-sheet {
   display: grid;
   gap: 20px;
@@ -308,23 +307,20 @@ tbody tr:last-child td { border-bottom: 0; }
   width: 100%;
 }
 
-/* Pengaturan Grid berdasarkan Layout */
 .invitations-sheet.layout-1 { grid-template-columns: 1fr; max-width: 210mm; }
 .invitations-sheet.layout-2 { grid-template-columns: repeat(2, 1fr); max-width: 210mm; }
 .invitations-sheet.layout-4 { grid-template-columns: repeat(2, 1fr); max-width: 210mm; }
 .invitations-sheet.layout-6 { grid-template-columns: repeat(3, 1fr); max-width: 210mm; }
 
-/* Wrapper pembungkus (Mencegah layout jebol) */
 .invite-wrapper {
   position: relative;
   overflow: hidden;
   background: #fff;
   box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-  /* Aspek Rasio berbasis A4 (Skala ditangani oleh Grid) */
   aspect-ratio: 1 / 1.414; 
+  border: 1px solid #cbd5e1; /* Border agar terlihat batas kertas */
 }
 
-/* Skala Desain Master */
 .invite {
   width: 210mm;
   height: 297mm;
@@ -334,10 +330,9 @@ tbody tr:last-child td { border-bottom: 0; }
   left: 0;
   transform-origin: top left;
   display: flex;
-  border: 1px solid #e2e8f0;
+  border: none;
 }
 
-/* Master Content */
 .invite-inner {
   width: 100%;
   height: 100%;
@@ -380,22 +375,23 @@ tbody tr:last-child td { border-bottom: 0; }
 .ttd-space img { max-height: 100%; max-width: 100%; object-fit: contain; }
 .ttd-nama { font-size: 15px; font-weight: bold; text-decoration: underline; margin-top: 5px; }
 
-/* Kalkulasi Scale Otomatis (Untuk Pengaturan Layout Grid) */
+/* Kalkulasi Scale Otomatis */
 .layout-1 .invite { transform: scale(1); }
 .layout-2 .invite { transform: scale(0.5); }
 .layout-4 .invite { transform: scale(0.5); }
 .layout-6 .invite { transform: scale(0.3333); }
 
-/* Atur tinggi wrapper sesuai skala agar pas di Grid */
+/* Tinggi wrapper (Agar pas saat print) */
 .layout-1 .invite-wrapper { height: 297mm; }
 .layout-2 .invite-wrapper { height: 148.5mm; }
 .layout-4 .invite-wrapper { height: 148.5mm; }
 .layout-6 .invite-wrapper { height: 99mm; }
 
-/* Preview Zoom (Hanya untuk Layar, agar pas di monitor) */
+
+/* Preview Zoom (Hanya Layar) */
 @media screen {
   .preview-zoom {
-    zoom: 0.5; /* Dikecilkan agar pas di layar PC */
+    zoom: 0.85; /* Diperbesar agar mudah dibaca */
   }
 }
 
@@ -409,23 +405,21 @@ tbody tr:last-child td { border-bottom: 0; }
     margin: 0; 
   }
   
-  body { background: #fff !important; }
+  body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
   
-  /* Sembunyikan UI Aplikasi */
   .sidebar, .topbar, .toast-wrap, .modal-backdrop, .no-print, 
   .btn-primary, .btn-ghost, .btn-danger, select, .hint, #invPagination { 
     display: none !important; 
   }
 
   #app { display: block !important; }
-  .main { padding: 0 !important; margin: 0; }
+  .main { padding: 0 !important; margin: 0 !important; }
   .card { box-shadow: none; border: none; padding: 0; margin: 0; background: transparent; }
   #invPrintArea { padding: 0 !important; background: transparent !important; margin: 0 !important; }
 
-  /* Reset semua efek zoom layar */
+  /* Pastikan tidak ada zoom yang tersisa */
   .preview-zoom { zoom: 1 !important; }
   
-  /* Grid Print Presisi */
   .invitations-sheet { 
     display: grid !important; 
     gap: 0 !important; 
@@ -436,13 +430,14 @@ tbody tr:last-child td { border-bottom: 0; }
     width: 210mm !important;
   }
 
-  /* Garis potong saat print */
+  /* Kunci tinggi wrapper agar TTD & QR tidak terpotong */
   .invite-wrapper {
     box-shadow: none !important;
-    border: 1px dashed #ccc !important;
+    border: 1px dashed #ccc !important; /* Garis potong */
     box-sizing: border-box !important;
     page-break-inside: avoid;
     break-inside: avoid;
+    overflow: hidden !important; 
   }
   
   .invite {
