@@ -375,7 +375,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .ttd-space img { max-height: 100%; max-width: 100%; object-fit: contain; }
 .ttd-nama { font-size: 15px; font-weight: bold; text-decoration: underline; margin-top: 5px; }
 
-/* Kalkulasi Scale Otomatis */
+/* Kalkulasi Scale Otomatis (Untuk Pengaturan Layout Grid) */
 .layout-1 .invite { transform: scale(1); }
 .layout-2 .invite { transform: scale(0.5); }
 .layout-4 .invite { transform: scale(0.5); }
@@ -386,7 +386,6 @@ tbody tr:last-child td { border-bottom: 0; }
 .layout-2 .invite-wrapper { height: 148.5mm; }
 .layout-4 .invite-wrapper { height: 148.5mm; }
 .layout-6 .invite-wrapper { height: 99mm; }
-
 
 /* Preview Zoom (Hanya Layar) */
 @media screen {
