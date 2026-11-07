@@ -143,6 +143,7 @@ window.ViewsAdmin = (function () {
           <input type="text" class="input" name="invitation_signer" value="${esc(settingsMap.invitation_signer || 'Ketua Panitia')}">
         </label>
 
+        <!-- AREA TTD -->
         <label class="field">
           <span>Tanda Tangan Ketua Panitia (Untuk Undangan)</span>
           
@@ -200,7 +201,7 @@ window.ViewsAdmin = (function () {
 
         let sigData = currentSigUrl;
         
-        // Jika admin menggambar TTD baru, ambil dari canvas (JPEG kompresi kecil)
+        // Jika admin menggambar TTD baru, ambil dari canvas
         if (!sigPad.isEmpty()) {
           sigData = sigPad.toDataURL(); 
         }

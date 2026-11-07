@@ -9,10 +9,10 @@ window.Sign = (function () {
     container.innerHTML = '';
 
     const canvas = document.createElement('canvas');
-    // Resolusi kecil agar ringan dan hemat memori
     canvas.width = 400;
     canvas.height = 150;
     
+    // CSS Mencegah seleksi teks browser PC
     canvas.style.cssText = `
       width: 100%;
       height: auto;
@@ -41,56 +41,50 @@ window.Sign = (function () {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     let isDrawing = false;
+    let hasDrawn = false;
     let lastX = 0;
     let lastY = 0;
-    let hasDrawn = false;
 
-    function getCoordinates(e) {
+    function getPos(e) {
       const rect = canvas.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
-
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      
-      // Support Touch and Mouse
-      let clientX = e.clientX;
-      let clientY = e.clientY;
-
-      if (e.touches && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      }
-
       return {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top) * scaleY
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
       };
     }
 
-    function startDrawing(e) {
-      if (e.button === 2) return; // Abaikan klik kanan
-      e.preventDefault(); // Blokir drag text browser
-      
-      isDrawing = true;
-      hasDrawn = true;
-      const pos = getCoordinates(e);
-      lastX = pos.x;
-      lastY = pos.y;
-      
-      // Titik awal
-      ctx.beginPath();
-      ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
-      ctx.fillStyle = '#0f172a';
-      ctx.fill();
+    function start(e) {
+      // Abaikan klik kanan
+      if (e.button !== undefined && e.button !== 2) { // 0 = kiri
+        e.preventDefault();
+        isDrawing = true;
+        const pos = getPos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+        
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+      }
     }
 
-    // Fungsi ini didengarkan di WINDOW, bukan Canvas. 
-    // Jadi sejauh apapun mouse bergerak, garis akan terus mengikuti.
+    // KUNCI: Event listener dipasang di WINDOW (seluruh layar)
+    // Jadi meskipun mouse keluar dari kotak, garis tetap dilacak.
     function draw(e) {
       if (!isDrawing) return;
-      e.preventDefault();
+      e.preventDefault(); // Blokir seleksi teks
       
-      const pos = getCoordinates(e);
+      const pos = getPos(e);
+      
+      // Hitung jarak gerak (jika terlalu kecil, abaikan)
+      const dx = pos.x - lastX;
+      const dy = pos.y - lastY;
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return; // Abaikan getaran mikro
+      
+      hasDrawn = true; // Sah digambar jika ada pergerakan
       
       ctx.beginPath();
       ctx.moveTo(lastX, lastY);
@@ -101,24 +95,27 @@ window.Sign = (function () {
       lastY = pos.y;
     }
 
-    function stopDrawing(e) {
+    function stop(e) {
       if (!isDrawing) return;
       isDrawing = false;
     }
 
-    // --- EVENT LISTENERS ---
-    // Mouse
-    canvas.addEventListener('mousedown', startDrawing);
-    window.addEventListener('mousemove', draw);
-    window.addEventListener('mouseup', stopDrawing);
-    
-    // Touch (HP)
-    canvas.addEventListener('touchstart', startDrawing, {passive: false});
-    window.addEventListener('touchmove', draw, {passive: false});
-    window.addEventListener('touchend', stopDrawing);
-    window.addEventListener('touchcancel', stopDrawing);
-    
-    // Cegah klik kanan
+    // Gunakan PointerEvents (Mendukung Mouse, Touch, Stylus secara seragam)
+    if (window.PointerEvent) {
+      canvas.addEventListener('pointerdown', start);
+      window.addEventListener('pointermove', draw);
+      window.addEventListener('pointerup', stop);
+      window.addEventListener('pointercancel', stop);
+    } else {
+      // Fallback browser lawas
+      canvas.addEventListener('mousedown', start);
+      window.addEventListener('mousemove', draw);
+      window.addEventListener('mouseup', stop);
+      canvas.addEventListener('touchstart', start, {passive: false});
+      window.addEventListener('touchmove', draw, {passive: false});
+      window.addEventListener('touchend', stop);
+    }
+
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     return {
@@ -131,8 +128,7 @@ window.Sign = (function () {
         ctx.strokeStyle = '#0f172a';
       },
       toDataURL: function () {
-        // KUNCI: Gunakan JPEG kualitas 0.4 agar ukuran Base64 sangat kecil (< 5KB)
-        // Ini mencegah Google Sheets memotong data (limit 50.000 karakter).
+        // Kompres ke JPEG kualitas 0.4 (Sangat kecil, aman dari limit Google Sheets)
         return canvas.toDataURL('image/jpeg', 0.4);
       },
       getCanvas: function () { return canvas; }
