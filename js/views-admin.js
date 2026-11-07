@@ -888,9 +888,11 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  INVITATIONS (Format Surat Formal + TTD Digital & PDF)
+   *  INVITATIONS (Format Surat Formal + Pagination + PDF)
    * ============================================================ */
   let invLayoutMode = '4';
+  let invPage = 1;
+  const invPerPage = 40; // 40 undangan = 10 lembar A4 (mode 4-up)
 
   async function invitations() {
     clearAllPolls();
@@ -907,7 +909,7 @@ window.ViewsAdmin = (function () {
       return;
     }
     
-    const voters = r.data || [];
+    const allVoters = r.data || [];
     let signerName = me().name || 'Ketua Panitia';
     let signerSignature = ''; 
     
@@ -919,36 +921,57 @@ window.ViewsAdmin = (function () {
     }
 
     const area = document.getElementById('invArea');
-    if (!voters.length) {
+    if (!allVoters.length) {
       area.innerHTML = `<div class="text-center" style="padding:32px"><p class="hint">Belum ada pemilih.</p><a href="#/admin/voters" class="btn-primary">Ke Data Pemilih</a></div>`;
       return;
     }
 
+    const totalPages = Math.ceil(allVoters.length / invPerPage);
+    if (invPage > totalPages) invPage = totalPages;
+
+    const startIndex = (invPage - 1) * invPerPage;
+    const paginatedVoters = allVoters.slice(startIndex, startIndex + invPerPage);
+
+    // Buat opsi pagination
+    let pageOptions = '';
+    for (let i = 1; i <= totalPages; i++) {
+      const start = (i - 1) * invPerPage + 1;
+      const end = Math.min(i * invPerPage, allVoters.length);
+      pageOptions += `<option value="${i}" ${invPage === i ? 'selected' : ''}>Hal ${i} (${start}-${end})</option>`;
+    }
+
     area.innerHTML = `
       <div class="row-between no-print">
-        <div><h3>Undangan Pemilih (${voters.length})</h3></div>
+        <div>
+          <h3>Undangan Pemilih (${allVoters.length})</h3>
+          <p class="hint">Menampilkan data ${startIndex + 1} - ${Math.min(startIndex + invPerPage, allVoters.length)}</p>
+        </div>
         <div class="row" style="margin:0; align-items:center;">
-          <select class="input" id="layoutSelect" style="width: 140px; height: 38px; padding: 0 10px;" onchange="ViewsAdmin.changeInvLayout(this.value)">
+          
+          <!-- PAGINATION -->
+          <select class="input" style="width: 130px; height: 38px; padding: 0 10px;" onchange="ViewsAdmin.changeInvPage(this.value)">
+            ${pageOptions}
+          </select>
+
+          <select class="input" style="width: 140px; height: 38px; padding: 0 10px;" onchange="ViewsAdmin.changeInvLayout(this.value)">
             <option value="4" ${invLayoutMode === '4' ? 'selected' : ''}>A4 dibagi 4</option>
             <option value="2" ${invLayoutMode === '2' ? 'selected' : ''}>A4 dibagi 2</option>
           </select>
+          
           <button class="btn-ghost" onclick="ViewsAdmin.exportInvCSV()">⬇️ CSV</button>
           <button class="btn-ghost" id="btnExportPDF" onclick="ViewsAdmin.exportInvPDF()">📄 PDF</button>
           <button class="btn-primary" onclick="window.print()">🖨️ Cetak</button>
         </div>
       </div>
       
-      <!-- WRAPPER UNTUK HTML2PDF (Hanya ambil area ini) -->
       <div id="invPrintArea" style="margin-top:12px; background:var(--bg); padding: 10px;">
         <div class="invitations-sheet ${invLayoutMode === '2' ? 'layout-2' : 'layout-4'}" id="invSheet"></div>
       </div>
     `;
 
     const sheet = document.getElementById('invSheet');
-    const today = new Date();
-    const dateStr = today.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
 
-    voters.forEach(v => {
+    paginatedVoters.forEach(v => {
       const cell = document.createElement('div');
       cell.className = 'invite';
       
@@ -1010,7 +1033,7 @@ window.ViewsAdmin = (function () {
     });
 
     await new Promise(r => setTimeout(r, 100));
-    voters.forEach(v => {
+    paginatedVoters.forEach(v => {
       const qrEl = document.getElementById('qr-' + v.id);
       if (qrEl) try { 
         QR.generate(qrEl, v.code, 85); 
@@ -1018,18 +1041,14 @@ window.ViewsAdmin = (function () {
     });
   }
 
+  function changeInvPage(page) {
+    invPage = Number(page);
+    invitations();
+  }
+
   function changeInvLayout(mode) {
     invLayoutMode = mode;
-    const sheet = document.getElementById('invSheet');
-    if (sheet) {
-      if (mode === '2') {
-        sheet.classList.remove('layout-4');
-        sheet.classList.add('layout-2');
-      } else {
-        sheet.classList.remove('layout-2');
-        sheet.classList.add('layout-4');
-      }
-    }
+    invitations(); 
   }
 
   async function exportInvPDF() {
@@ -1054,7 +1073,7 @@ window.ViewsAdmin = (function () {
     
     const opt = {
       margin:       0,
-      filename:     'undangan-pemilih.pdf',
+      filename:     `undangan-pemilih-hal-${invPage}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -1321,7 +1340,7 @@ window.ViewsAdmin = (function () {
     candidates, addCandidate, editCandidate, deleteCandidate,
     booths, addBooth, renameBooth, resetBooth, deleteBooth,
     users, addUser, editUser, deleteUser,
-    invitations, exportInvCSV, changeInvLayout, exportInvPDF,
+    invitations, exportInvCSV, changeInvLayout, changeInvPage, exportInvPDF,
     results, exportResultsCSV,
     beritaAcara, newBeritaAcara, printBeritaAcara,
     settings,
