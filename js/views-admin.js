@@ -3,18 +3,6 @@
    Role: ADMIN
    Menu: Dashboard, Voters, Candidates, Booths, Users,
          Invitations, Results, BeritaAcara, Settings
-   
-   Perbaikan:
-   - Poll anti-race dengan flag busy (per-poll)
-   - Cleanup konsisten via _clearAllPolls
-   - Sign pad & QR auto-cleanup
-   - Form validation defensif
-   - CRUD candidates/voters/users/booths via API
-   - QR Code generate + download
-   - Print-friendly invitations
-   - Results auto-refresh + chart bars
-   - Settings: signature upload via canvas
-   - Semua error ditangkap, tidak crash
    ============================================================ */
 window.ViewsAdmin = (function () {
   'use strict';
@@ -769,7 +757,7 @@ Ani,02,02,Jl. Melati,085678"></textarea>
   }
 
   /* ============================================================
-   *  INVITATIONS
+   *  INVITATIONS (Dengan Fitur Ekspor PDF & Pengaturan Halaman)
    * ============================================================ */
   async function invitations() {
     clearAllPolls();
@@ -779,32 +767,48 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     const el = view();
     if (!el) return;
     el.innerHTML = `
-      <div class="card">
-        <div class="row-between no-print">
+      <div class="card no-print">
+        <div class="row-between">
           <div>
             <h3>Undangan Pemilih</h3>
-            <p class="hint">Cetak undangan dengan QR code per pemilih.</p>
+            <p class="hint">Cetak atau ekspor undangan ke PDF.</p>
           </div>
           <div class="row" style="margin:0">
             <select class="input" id="invLayout" style="width:auto">
-              <option value="layout-2">2 per halaman (A5)</option>
-              <option value="layout-4" selected>4 per halaman (A6)</option>
+              <option value="layout-1">1 Per Halaman (A4)</option>
+              <option value="layout-2" selected>2 Per Halaman (A5)</option>
+              <option value="layout-4">4 Per Halaman (A6)</option>
+              <option value="layout-6">6 Per Halaman (Custom)</option>
             </select>
-            <button class="btn-primary btn-sm" id="btnPrint" type="button">🖨️ Print</button>
+            <button class="btn-ghost btn-sm" id="btnExportPdf" type="button">📄 Ekspor PDF</button>
+            <button class="btn-primary btn-sm" id="btnPrint" type="button">🖨️ Cetak</button>
           </div>
         </div>
-        <div class="row no-print" style="margin-top:12px">
-          <input class="input" id="invSearch" placeholder="Cari nama…" style="flex:1">
+        <div class="row" style="margin-top:12px">
+          <input class="input" id="invSearch" placeholder="Cari nama pemilih…" style="flex:1">
         </div>
-        <div id="invPrintArea" style="margin-top:16px">${UI.skeleton(3)}</div>
+      </div>
+      
+      <div id="invPrintArea" style="margin-top:16px; background:#e2e8f0; padding: 20px; overflow-x: auto;">
+        ${UI.skeleton(3)}
       </div>
     `;
 
     const btnPrint = document.getElementById('btnPrint');
+    const btnExportPdf = document.getElementById('btnExportPdf');
     const search = document.getElementById('invSearch');
     const layout = document.getElementById('invLayout');
 
-    if (btnPrint) btnPrint.onclick = () => window.print();
+    const triggerPrint = () => {
+      setTimeout(() => window.print(), 100);
+    };
+
+    if (btnPrint) btnPrint.onclick = triggerPrint;
+    if (btnExportPdf) btnExportPdf.onclick = () => {
+      UI.toast('Pilih "Save as PDF" pada dialog cetak.', 'info');
+      triggerPrint();
+    };
+    
     if (search) search.addEventListener('input', UI.debounce(() => loadInvitations(), 300));
     if (layout) layout.addEventListener('change', () => loadInvitations());
 
@@ -832,7 +836,15 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     const signerSig = settings.invitation_signature || '';
     const eventName = settings.event_name || 'Pemilihan';
     const eventLoc = settings.event_location || '-';
-    const electionDate = settings.election_date ? UI.formatDateLong(settings.election_date) : '-';
+    
+    let formattedDate = '-';
+    if (settings.election_date) {
+      const d = new Date(settings.election_date);
+      const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      const pad = (n) => String(n).padStart(2, '0');
+      formattedDate = `${days[d.getDay()]}, ${pad(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    }
 
     const q = (document.getElementById('invSearch') || {}).value || '';
     const kw = q.trim().toLowerCase();
@@ -840,67 +852,83 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     if (kw) list = list.filter(v => String(v.name || '').toLowerCase().indexOf(kw) !== -1);
 
     if (!list.length) {
-      area.innerHTML = `<p class="hint">Tidak ada pemilih.</p>`;
+      area.innerHTML = `<p class="hint" style="color:#000">Tidak ada pemilih.</p>`;
       return;
     }
 
     const layoutEl = document.getElementById('invLayout');
-    const layoutClass = (layoutEl && layoutEl.value) || 'layout-4';
+    const layoutClass = (layoutEl && layoutEl.value) || 'layout-2';
+
+    let qrSize = 100;
+    if (layoutClass === 'layout-4') qrSize = 80;
+    if (layoutClass === 'layout-6') qrSize = 60;
 
     area.innerHTML = `<div class="invitations-sheet ${layoutClass}">
       ${list.map(v => {
-        const signHtml = signerSig
-          ? `<img src="${esc(signerSig)}" alt="TTD">`
-          : '';
+        const signHtml = signerSig ? `<img src="${esc(signerSig)}" alt="TTD">` : '';
+        
         return `
-        <div class="invite" data-voter-id="${esc(v.id)}">
+        <div class="invite">
           <div class="invite-inner">
             <div class="kop-surat">
-              <img src="assets/logo.svg" alt="Logo" onerror="this.style.display='none'">
+              <img src="assets/logo.svg" alt="Logo RAS" onerror="this.style.display='none'">
               <div class="kop-text">
-                <div class="kop-title">PANITIA PEMILIHAN</div>
-                <div class="kop-sub">${esc(eventName)}</div>
+                <div class="kop-title">PERKUMPULAN PEMUDA-PEMUDI</div>
+                <div class="kop-title">RUKUN AGAWE SANTOSA (RAS)</div>
+                <div class="kop-sub">Jl. Parangtritis Km 6,5 Ngijo Bangunharjo</div>
+                <div class="kop-sub">Sewon Bantul</div>
               </div>
             </div>
+
             <div class="surat-body">
               <div class="surat-header">
-                <div class="surat-tujuan">
-                  <div>Kepada:</div>
+                <div class="hal-undangan">Hal: Undangan</div>
+                <div class="kepada-yth">
+                  <div>Kepada Bapak/Ibu/Sdr:</div>
                   <div class="nama-pemilih">${esc(v.name)}</div>
-                  <div>RT ${esc(v.rt || '-')} / RW ${esc(v.rw || '-')}</div>
                 </div>
+                <div class="di-tempat">Di Tempat</div>
               </div>
+
               <div class="surat-isi">
-                <p>Dengan hormat, Anda diundang untuk hadir pada:</p>
+                <p>Dengan Hormat,</p>
+                <p>Mengharap kehadiran yang akan diselenggarakan pada:</p>
                 <table class="surat-tabel">
-                  <tr><td>Hari/Tgl</td><td>:</td><td>${esc(electionDate)}</td></tr>
-                  <tr><td>Lokasi</td><td>:</td><td>${esc(eventLoc)}</td></tr>
+                  <tr><td class="label">Hari,tanggal</td><td>:</td><td>${esc(formattedDate)}</td></tr>
+                  <tr><td class="label">Pukul</td><td>:</td><td>19.30 – Selesai</td></tr>
+                  <tr><td class="label">Tempat</td><td>:</td><td>${esc(eventLoc)}</td></tr>
+                  <tr><td class="label">Acara</td><td>:</td><td>${esc(eventName)}</td></tr>
                 </table>
-                <p>Tunjukkan QR code ini kepada petugas.</p>
+                <p class="penutup">Demikian atas perhatian dan kehadiran kami mengucapkan terima kasih.</p>
               </div>
+
               <div class="surat-ttd">
-                <div class="ttd-box">
-                  <div class="ttd-jabatan">${esc(signerName)}</div>
+                <div class="ttd-box" style="width:45%;">
+                  <div class="qr-scan-wrapper">
+                    <div class="qr-image" id="qr-${esc(v.id)}"></div>
+                    <div class="qr-code-text">${esc(v.code || '-')}</div>
+                  </div>
+                  <div class="ttd-nama">Kode Pemilih</div>
+                </div>
+                
+                <div class="ttd-box" style="width:45%;">
+                  <div class="ttd-jabatan">Hormat kami,<br>${esc(signerName)}</div>
                   <div class="ttd-space">${signHtml}</div>
                   <div class="ttd-nama">( ${esc(signerName)} )</div>
                 </div>
-                <div class="qr-scan-wrapper">
-                  <div class="qr-image" id="qr-${esc(v.id)}"></div>
-                  <div class="qr-code-text">${esc(v.code || '-')}</div>
-                </div>
               </div>
+
             </div>
           </div>
         </div>`;
       }).join('')}
     </div>`;
 
-    // Generate QR after DOM ready
     setTimeout(() => {
       list.forEach(v => {
         const container = document.getElementById('qr-' + v.id);
         if (container && window.QR) {
-          try { QR.generate(container, v.code || v.id, 90); } catch (_) {}
+          try { QR.generate(container, v.code || v.id, qrSize); } catch (_) {}
         }
       });
     }, 100);
@@ -1031,7 +1059,6 @@ Ani,02,02,Jl. Melati,085678"></textarea>
         <textarea class="input" id="baContent" rows="8"></textarea></label>
     `;
 
-    // Autofill content dengan summary
     try {
       const r = await API.post('results');
       if (r.success) {
@@ -1133,7 +1160,6 @@ Ani,02,02,Jl. Melati,085678"></textarea>
       </div>
     `;
 
-    // Mount sign pad jika ada existing signature
     const padHost = document.getElementById('sigPadSettings');
     if (padHost && window.Sign) {
       try {
@@ -1197,14 +1223,12 @@ Ani,02,02,Jl. Melati,085678"></textarea>
         invitation_signer: (document.getElementById('sSigner') || {}).value || '',
       };
 
-      // Simpan setting biasa (kecuali signature)
       for (const key of Object.keys(updates)) {
         try {
           await API.post('settings.save', { key, value: updates[key] });
         } catch (_) {}
       }
 
-      // Simpan TTD jika berubah
       if (sigPad && !sigPad.isEmpty()) {
         const dataUrl = await sigPad.getBase64();
         const r = await API.post('settings.save', {
@@ -1227,7 +1251,7 @@ Ani,02,02,Jl. Melati,085678"></textarea>
   }
 
   /* ============================================================
-   *  EXPORTS (dengan referensi global agar onclick inline bekerja)
+   *  EXPORTS
    * ============================================================ */
   return {
     dashboard,
