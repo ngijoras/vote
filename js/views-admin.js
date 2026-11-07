@@ -21,7 +21,6 @@ window.ViewsAdmin = (function () {
     return (prefix || 'V') + Date.now().toString(36).toUpperCase().slice(-6) + Math.random().toString(36).slice(2, 4).toUpperCase();
   }
 
-  /* ---------- Polling ---------- */
   const polls = {};
   function setPoll(id, ms, fn) {
     clearPoll(id);
@@ -33,7 +32,6 @@ window.ViewsAdmin = (function () {
   function clearPoll(id) { if (polls[id]) { clearInterval(polls[id]); delete polls[id]; } }
   function clearAllPolls() { Object.keys(polls).forEach(clearPoll); }
 
-  /* ---------- Image resize ---------- */
   function resizeImageFile(file, maxSize = 300, quality = 0.75) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -103,7 +101,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  SETTINGS (Dengan TTD Digital Base64)
+   *  SETTINGS — TTD Robust (Port dari absensi.js)
    * ============================================================ */
   async function settings() {
     clearAllPolls();
@@ -151,18 +149,23 @@ window.ViewsAdmin = (function () {
           <input type="text" class="input" name="invitation_signer" value="${esc(settingsMap.invitation_signer || 'Ketua Panitia')}">
         </label>
 
-        <!-- AREA TTD -->
+        <!-- AREA TTD ROBUST -->
         <label class="field">
           <span>Tanda Tangan Ketua Panitia (Untuk Undangan)</span>
           
           <div id="sigPreviewArea" style="display: none; margin-bottom: 8px;">
-            <img id="sigPreviewImg" src="" style="max-height: 120px; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 4px;">
+            <img id="sigPreviewImg" src="" alt="TTD Tersimpan"
+                 style="max-height: 140px; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 4px;">
+            <p class="hint" style="margin-top: 6px;">
+              <small id="sigSizeInfo"></small>
+            </p>
           </div>
           
           <div id="sigPadSettings"></div>
           
           <div class="row" style="margin-top:8px">
             <button type="button" class="btn-ghost btn-sm" id="btnClearSig">Hapus / Ganti TTD</button>
+            <button type="button" class="btn-ghost btn-sm" id="btnVerifySig">🔍 Test Simpan</button>
           </div>
         </label>
 
@@ -170,34 +173,54 @@ window.ViewsAdmin = (function () {
       </form>
     `;
 
-    // Beri jeda 100ms agar DOM selesai render
+    // BERI JEDA agar DOM + Canvas selesai render
     setTimeout(() => {
-      const sigHost = document.getElementById('sigPadSettings');
-      const sigPreviewArea = document.getElementById('sigPreviewArea');
+      const sigHost       = document.getElementById('sigPadSettings');
+      const sigPreview    = document.getElementById('sigPreviewArea');
       const sigPreviewImg = document.getElementById('sigPreviewImg');
-      const sigPad = Sign.mount(sigHost);
+      const sigSizeInfo   = document.getElementById('sigSizeInfo');
+      const sigPad        = Sign.mount(sigHost);
       
       let currentSigData = settingsMap.invitation_signature || '';
 
       function refreshPreview() {
         if (currentSigData && currentSigData.length > 10) {
           sigHost.style.display = 'none';
-          sigPreviewArea.style.display = 'block';
+          sigPreview.style.display = 'block';
           sigPreviewImg.src = currentSigData;
+          if (sigSizeInfo) {
+            const kb = (currentSigData.length / 1024).toFixed(1);
+            sigSizeInfo.textContent = `Tersimpan (${kb} KB dari 47 KB max)`;
+            sigSizeInfo.style.color = 'var(--ok)';
+          }
         } else {
           sigHost.style.display = 'block';
-          sigPreviewArea.style.display = 'none';
+          sigPreview.style.display = 'none';
         }
       }
 
       refreshPreview();
 
+      // Tombol Hapus
       document.getElementById('btnClearSig').onclick = () => {
         currentSigData = '';
         sigPad.clear();
         refreshPreview();
+        UI.toast('TTD dihapus dari preview. Klik Simpan untuk konfirmasi.', 'info', 3000);
       };
 
+      // Tombol Test Simpan (untuk verifikasi sebelum save final)
+      document.getElementById('btnVerifySig').onclick = async () => {
+        if (sigPad.isEmpty()) {
+          UI.toast('Canvas kosong, tidak ada yang perlu di-test', 'warn');
+          return;
+        }
+        const data = sigPad.toDataURL();
+        UI.toast(`✅ Canvas terdeteksi: ${(data.length/1024).toFixed(1)} KB. ${data.length > 47000 ? '⚠ TERLALU BESAR!' : 'Aman untuk disimpan.'}`, 
+                 data.length > 47000 ? 'warn' : 'success', 5000);
+      };
+
+      // Submit
       document.getElementById('settingsForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btnSaveSettings');
@@ -208,29 +231,66 @@ window.ViewsAdmin = (function () {
         let isoDate = '';
         if (dateVal) isoDate = new Date(dateVal).toISOString();
 
+        // Tentukan sigData yang akan disimpan
         let sigDataToSave = currentSigData;
         
-        // Jika admin menggambar TTD baru, ambil dari canvas (sudah dikompres JPEG 0.4)
-        if (!sigPad.isEmpty()) {
-          sigDataToSave = sigPad.toDataURL(); 
+        // KUNCI: Cek canvas DENGAN hasContent() bukan isEmpty()
+        // isEmpty() = !hasDrawn (bisa false positive)
+        // hasContent() = cek pixel data (real check)
+        if (sigPad.hasContent && sigPad.hasContent()) {
+          sigDataToSave = sigPad.toDataURL();
+          console.log('[settings] TTD baru akan disimpan, ukuran:', sigDataToSave.length, 'chars');
+        } else if (!currentSigData) {
+          sigDataToSave = '';
         }
 
+        // Validasi ukuran
+        if (sigDataToSave.length > 47000) {
+          UI.toast('❌ TTD terlalu besar (' + sigDataToSave.length + ' char). Coba gambar lebih kecil.', 'error', 6000);
+          btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan';
+          return;
+        }
+
+        // Simpan pengaturan lain
         await API.post('settings.save', { key: 'election_date', value: isoDate });
         await API.post('settings.save', { key: 'event_name', value: fd.get('event_name') });
         await API.post('settings.save', { key: 'invitation_signer', value: fd.get('invitation_signer') });
         
-        const res = await API.post('settings.save', { key: 'invitation_signature', value: sigDataToSave });
-        
-        if (res.success && res.data && res.data.value) {
-          currentSigData = res.data.value;
+        // Simpan TTD
+        const saveRes = await API.post('settings.save', {
+          key: 'invitation_signature',
+          value: sigDataToSave
+        });
+
+        if (!saveRes.success) {
+          UI.toast('❌ Gagal menyimpan TTD: ' + (saveRes.message || 'unknown'), 'error', 6000);
+          btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan';
+          return;
+        }
+
+        // === VERIFIKASI: Reload dari server ===
+        const verifyRes = await API.post('list', { sheet: 'settings' });
+        let verifiedSig = '';
+        if (verifyRes.success) {
+          const s = (verifyRes.data || []).find(x => x.key === 'invitation_signature');
+          verifiedSig = s ? (s.value || '') : '';
+        }
+
+        if (sigDataToSave && verifiedSig && verifiedSig.length > 100) {
+          currentSigData = verifiedSig;
+          UI.toast('✅ TTD tersimpan & terverifikasi (' + (verifiedSig.length/1024).toFixed(1) + ' KB)', 'success', 4000);
+        } else if (!sigDataToSave && !verifiedSig) {
+          currentSigData = '';
+          UI.toast('TTD dihapus dari server', 'info');
+        } else {
+          UI.toast('⚠ TTD gagal terverifikasi. Panjang di server: ' + verifiedSig.length + ' char', 'error', 6000);
         }
 
         Cache.clearAll();
-        UI.toast('Pengaturan berhasil disimpan', 'success');
         btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan';
         refreshPreview();
       });
-    }, 100);
+    }, 150);
   }
 
   /* ============================================================
@@ -265,7 +325,6 @@ window.ViewsAdmin = (function () {
     if (!area) return;
     
     const q = voterSearchQ.toLowerCase();
-    
     const uniqueRts = [...new Set(allVoters.map(v => v.rt).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
     
     let filtered = allVoters.filter(v => {
@@ -316,7 +375,6 @@ window.ViewsAdmin = (function () {
       </div>
       
       <div class="row" style="margin-top:16px; align-items:center; background:#f8fafc; padding:12px; border-radius:12px; border:1px solid var(--border);">
-        
         <input class="input" placeholder="Cari nama atau kode pemilih…" value="${esc(voterSearchQ)}" oninput="ViewsAdmin.searchVoters(this.value)" style="flex:1; min-width:200px;">
         
         <select class="input" style="max-width:150px" onchange="ViewsAdmin.setVoterFilterRt(this.value)">
@@ -331,7 +389,6 @@ window.ViewsAdmin = (function () {
           <option value="rt_desc" ${voterSortBy === 'rt_desc' ? 'selected' : ''}>Urut RT Terbesar</option>
           <option value="status" ${voterSortBy === 'status' ? 'selected' : ''}>Belum Memilih</option>
         </select>
-
       </div>
 
       <div class="table-wrap" style="margin-top:12px">
@@ -365,15 +422,8 @@ window.ViewsAdmin = (function () {
     if (el) { el.focus(); el.setSelectionRange(q.length, q.length); }
   }
 
-  function setVoterSort(val) {
-    voterSortBy = val;
-    renderVoters();
-  }
-
-  function setVoterFilterRt(val) {
-    voterFilterRt = val;
-    renderVoters();
-  }
+  function setVoterSort(val) { voterSortBy = val; renderVoters(); }
+  function setVoterFilterRt(val) { voterFilterRt = val; renderVoters(); }
 
   function buildVoterForm(v) {
     const wrap = UI.el('div');
@@ -665,10 +715,8 @@ window.ViewsAdmin = (function () {
   async function loadBooths() {
     const area = document.getElementById('boothArea');
     if (!area) return;
-    
     const r = await Cache.fetchApi('booth.status', {});
     if (!r.success) return;
-    
     allBooths = r.data || [];
     renderBooths();
   }
@@ -688,7 +736,6 @@ window.ViewsAdmin = (function () {
       </div>
       <div style="margin-top:12px">
         ${allBooths.length === 0 ? `<p class="hint">Belum ada bilik.</p>` : allBooths.map(b => {
-          
           const isOnline = b.lastActive && (now - Number(b.lastActive) < 120000);
           const statusIndicator = isOnline 
             ? `<span class="dot-indicator online" title="Perangkat Aktif"></span> Online`
@@ -1059,15 +1106,8 @@ window.ViewsAdmin = (function () {
     });
   }
 
-  function changeInvPage(page) {
-    invPage = Number(page);
-    invitations();
-  }
-
-  function changeInvLayout(mode) {
-    invLayoutMode = mode;
-    invitations(); 
-  }
+  function changeInvPage(page) { invPage = Number(page); invitations(); }
+  function changeInvLayout(mode) { invLayoutMode = mode; invitations(); }
 
   async function exportInvPDF() {
     const btn = document.getElementById('btnExportPDF');
@@ -1349,9 +1389,6 @@ window.ViewsAdmin = (function () {
     w.document.close();
   }
 
-  /* ============================================================
-   *  EXPORTS
-   * ============================================================ */
   return {
     dashboard,
     voters, addVoter, editVoter, deleteVoter, searchVoters, setVoterSort, setVoterFilterRt, bulkImport,
