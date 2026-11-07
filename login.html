@@ -11,20 +11,59 @@
     .landing-extras { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
     .password-wrap { position: relative; }
     .password-wrap input { padding-right: 44px; }
-    .pwd-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; color: var(--muted); transition: .15s ease; }
+    .pwd-toggle {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      width: 36px; height: 36px; display: grid; place-items: center;
+      border-radius: 10px; color: var(--muted); transition: .15s ease;
+      border: 0; background: transparent; cursor: pointer;
+    }
     .pwd-toggle:hover { background: #f1f5f9; color: var(--text); }
-    .remember-row { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); margin: 4px 0 0; user-select: none; }
-    .remember-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); }
-    .login-card .btn-primary { width: 100%; margin-top: 16px; padding: 13px; font-size: .95rem; }
-    .login-card .btn-primary .spinner-inline { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; margin-right: 8px; vertical-align: -2px; }
-    .banner { padding: 10px 14px; border-radius: 10px; font-size: .85rem; line-height: 1.4; display: none; }
+    .remember-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: .85rem; color: var(--muted); margin: 4px 0 0; user-select: none;
+      cursor: pointer;
+    }
+    .remember-row input[type="checkbox"] {
+      width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer;
+    }
+    .login-card .btn-primary {
+      width: 100%; margin-top: 16px; padding: 13px; font-size: .95rem;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .login-card .btn-primary .spinner-inline {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .banner {
+      padding: 10px 14px; border-radius: 10px; font-size: .85rem;
+      line-height: 1.4; display: none; margin-bottom: 4px;
+      animation: slideIn .2s ease;
+    }
     .banner.show { display: block; }
     .banner.error { background: var(--err-soft); color: var(--err-text); border: 1px solid #fecaca; }
-    .banner.warn { background: var(--warn-soft); color: var(--warn-text); border: 1px solid #fde68a; }
-    .banner.info { background: var(--primary-soft); color: var(--primary-700); border: 1px solid #bfdbfe; }
-    .brand-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--primary-50); color: var(--primary-700); border-radius: 999px; font-size: .72rem; font-weight: 600; margin-top: 8px; letter-spacing: .02em; }
-    .brand-badge .dot-live { width: 6px; height: 6px; background: var(--ok); border-radius: 50%; animation: pulse 1.6s ease-in-out infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.75); } }
+    .banner.warn  { background: var(--warn-soft); color: var(--warn-text); border: 1px solid #fde68a; }
+    .banner.info  { background: var(--primary-soft); color: var(--primary-700); border: 1px solid #bfdbfe; }
+    .banner.success { background: var(--ok-soft); color: var(--ok-text); border: 1px solid #bbf7d0; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .brand-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; background: var(--primary-50); color: var(--primary-700);
+      border-radius: 999px; font-size: .72rem; font-weight: 600;
+      margin-top: 8px; letter-spacing: .02em;
+    }
+    .brand-badge .dot-live {
+      width: 6px; height: 6px; background: var(--ok);
+      border-radius: 50%; animation: pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: .4; transform: scale(.75); }
+    }
     .version-stamp { font-size: .7rem; color: var(--muted-2); margin-top: 6px; }
   </style>
 </head>
@@ -46,20 +85,25 @@
     <form id="loginForm" class="card login-card" autocomplete="on" novalidate>
       <h2>Masuk ke Sistem</h2>
       <p class="hint" style="margin-top:0">Gunakan akun yang diberikan panitia.</p>
-      
-      <div id="loginBanner" class="banner" role="alert"></div>
+
+      <div id="loginBanner" class="banner" role="alert" aria-live="polite"></div>
 
       <div class="landing-extras">
         <label class="field">
           <span>Username</span>
-          <input id="username" name="username" class="input" type="text" placeholder="admin / petugas1 / bilik-1" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required />
+          <input id="username" name="username" class="input" type="text"
+                 placeholder="admin / petugas1 / bilik-1"
+                 autocomplete="username" autocapitalize="off" autocorrect="off"
+                 spellcheck="false" required />
         </label>
 
         <label class="field">
           <span>Password</span>
           <div class="password-wrap">
-            <input id="password" name="password" class="input" type="password" placeholder="••••••••" autocomplete="current-password" required />
-            <button type="button" class="pwd-toggle" id="pwdToggle" aria-label="Tampilkan password" tabindex="-1">👁️</button>
+            <input id="password" name="password" class="input" type="password"
+                   placeholder="••••••••" autocomplete="current-password" required />
+            <button type="button" class="pwd-toggle" id="pwdToggle"
+                    aria-label="Tampilkan password" tabindex="-1">👁️</button>
           </div>
         </label>
 
@@ -69,7 +113,7 @@
       </div>
 
       <button type="submit" class="btn-primary" id="loginBtn">Masuk</button>
-      
+
       <p class="hint text-center" style="margin-top:14px">
         <a href="index.html" style="color:var(--primary);font-weight:600">← Kembali ke Halaman Utama</a>
       </p>
@@ -87,81 +131,160 @@
   <script>
   (function () {
     'use strict';
-    const form = document.getElementById('loginForm');
-    const usernameI = document.getElementById('username');
-    const passwordI = document.getElementById('password');
-    const pwdToggle = document.getElementById('pwdToggle');
-    const loginBtn = document.getElementById('loginBtn');
-    const banner = document.getElementById('loginBanner');
-    const remember = document.getElementById('rememberUsername');
-    const yearEl = document.getElementById('year');
+
+    const form        = document.getElementById('loginForm');
+    const usernameI   = document.getElementById('username');
+    const passwordI   = document.getElementById('password');
+    const pwdToggle   = document.getElementById('pwdToggle');
+    const loginBtn    = document.getElementById('loginBtn');
+    const banner      = document.getElementById('loginBanner');
+    const remember    = document.getElementById('rememberUsername');
+    const yearEl      = document.getElementById('year');
+
     const LS_REMEMBER = 'evote_remember_username';
+    const Store       = (window.SafeStorage || window.localStorage);
 
     if (yearEl) yearEl.textContent = new Date().getFullYear();
 
+    let submitting = false;
+
+    /* ---------- Banner helpers ---------- */
     function showBanner(msg, type) {
-      banner.textContent = msg; banner.className = 'banner show ' + (type || 'error');
+      if (!banner) return;
+      banner.textContent = msg;
+      banner.className = 'banner show ' + (type || 'error');
     }
-    function clearBanner() { banner.textContent = ''; banner.className = 'banner'; }
-    function setLoading(isLoading) {
-      loginBtn.disabled = isLoading;
-      loginBtn.innerHTML = isLoading ? '<span class="spinner-inline"></span>Memproses…' : 'Masuk';
-      usernameI.disabled = isLoading; passwordI.disabled = isLoading;
+    function clearBanner() {
+      if (!banner) return;
+      banner.textContent = '';
+      banner.className = 'banner';
     }
 
+    /* ---------- Loading state ---------- */
+    function setLoading(isLoading) {
+      submitting = isLoading;
+      if (loginBtn) {
+        loginBtn.disabled = isLoading;
+        loginBtn.innerHTML = isLoading
+          ? '<span class="spinner-inline"></span> Memproses…'
+          : 'Masuk';
+      }
+      if (usernameI) usernameI.disabled = isLoading;
+      if (passwordI) passwordI.disabled = isLoading;
+    }
+
+    /* ---------- Config guard ---------- */
     if (window.API && API.isConfigured && !API.isConfigured()) {
       showBanner('Backend belum dikonfigurasi. Buka js/api.js dan ganti BASE_URL.', 'warn');
     }
 
-    if (window.API && API.isLoggedIn && API.isLoggedIn()) {
-      location.replace('app.html'); return;
-    }
-
+    /* ---------- Auto-redirect kalau sudah login ---------- */
     try {
-      const saved = (window.SafeStorage || localStorage).getItem(LS_REMEMBER);
-      if (saved) { usernameI.value = saved; remember.checked = true; passwordI.focus(); }
-      else { usernameI.focus(); }
+      if (window.API && API.isLoggedIn && API.isLoggedIn()) {
+        location.replace('app.html');
+        return;
+      }
     } catch (_) {}
 
-    pwdToggle.addEventListener('click', function () {
-      const isPwd = passwordI.type === 'password';
-      passwordI.type = isPwd ? 'text' : 'password';
-      pwdToggle.textContent = isPwd ? '🙈' : '👁️';
-    });
+    /* ---------- Restore username ---------- */
+    try {
+      const saved = Store.getItem(LS_REMEMBER);
+      if (saved && usernameI) {
+        usernameI.value = saved;
+        if (remember) remember.checked = true;
+        if (passwordI) passwordI.focus();
+      } else if (usernameI) {
+        usernameI.focus();
+      }
+    } catch (_) {}
 
+    /* ---------- Password toggle ---------- */
+    if (pwdToggle && passwordI) {
+      pwdToggle.addEventListener('click', function () {
+        const isPwd = passwordI.type === 'password';
+        passwordI.type = isPwd ? 'text' : 'password';
+        pwdToggle.textContent = isPwd ? '🙈' : '👁️';
+        pwdToggle.setAttribute('aria-label', isPwd ? 'Sembunyikan password' : 'Tampilkan password');
+        try { passwordI.focus(); } catch (_) {}
+      });
+    }
+
+    /* ---------- Submit handler ---------- */
     form.addEventListener('submit', async function (e) {
-      e.preventDefault(); clearBanner();
-      const username = usernameI.value.trim();
-      const password = passwordI.value;
+      e.preventDefault();
+      if (submitting) return; // guard double-submit
+      clearBanner();
+
+      const username = (usernameI && usernameI.value || '').trim();
+      const password = passwordI && passwordI.value || '';
 
       if (!username || !password) {
-        showBanner('Username dan password wajib diisi.'); return;
+        showBanner('Username dan password wajib diisi.', 'error');
+        return;
       }
+
       setLoading(true);
 
-      let res;
-      try { res = await API.login(username, password); }
-      catch (err) { setLoading(false); showBanner('Kesalahan: ' + err.message); return; }
+      /* Redirect berdasarkan role setelah sukses */
+      const roleRedirect = (role) => {
+        switch (String(role || '').toLowerCase()) {
+          case 'admin':   return 'app.html#/admin';
+          case 'petugas': return 'app.html#/petugas';
+          case 'bilik':   return 'app.html#/bilik';
+          default:        return 'app.html';
+        }
+      };
 
-      if (!res || !res.success) {
-        setLoading(false); showBanner(res.message || 'Login gagal.');
-        passwordI.focus(); passwordI.select(); return;
+      let res;
+      try {
+        res = await API.login(username, password);
+      } catch (err) {
+        setLoading(false);
+        showBanner('Kesalahan jaringan: ' + (err && err.message ? err.message : err), 'error');
+        return;
       }
 
-      if (res.token && res.user && API.setSession) API.setSession(res.token, res.user);
-      
+      if (!res || !res.success) {
+        setLoading(false);
+        showBanner((res && res.message) || 'Login gagal.', 'error');
+        if (passwordI) { passwordI.focus(); passwordI.select(); }
+        return;
+      }
+
+      /* Simpan sesi (API.login sudah set session, tapi pastikan) */
       try {
-        if (remember.checked) (window.SafeStorage || localStorage).setItem(LS_REMEMBER, username);
-        else (window.SafeStorage || localStorage).removeItem(LS_REMEMBER);
+        if (res.token && res.user && API.setSession) {
+          API.setSession(res.token, res.user);
+        }
       } catch (_) {}
 
-      loginBtn.innerHTML = '<span class="spinner-inline"></span>Berhasil…';
-      showBanner('Login berhasil. Mengalihkan…', 'info');
-      setTimeout(() => location.replace('app.html'), 350);
+      /* Remember username */
+      try {
+        if (remember && remember.checked) Store.setItem(LS_REMEMBER, username);
+        else Store.removeItem(LS_REMEMBER);
+      } catch (_) {}
+
+      /* Feedback UI */
+      if (loginBtn) loginBtn.innerHTML = '<span class="spinner-inline"></span> Berhasil…';
+      showBanner('Login berhasil. Mengalihkan…', 'success');
+
+      /* Redirect berdasarkan role */
+      const target = roleRedirect(res.user && res.user.role);
+      setTimeout(function () { location.replace(target); }, 350);
     });
 
-    usernameI.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); passwordI.focus(); } });
-    [usernameI, passwordI].forEach(el => el.addEventListener('input', clearBanner));
+    /* ---------- UX helpers ---------- */
+    if (usernameI) {
+      usernameI.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (passwordI) passwordI.focus();
+        }
+      });
+    }
+    [usernameI, passwordI].forEach(function (el) {
+      if (el) el.addEventListener('input', clearBanner);
+    });
   })();
   </script>
 </body>
