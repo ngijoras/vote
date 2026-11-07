@@ -757,12 +757,16 @@ Ani,02,02,Jl. Melati,085678"></textarea>
   }
 
   /* ============================================================
-   *  INVITATIONS (Dengan Fitur Ekspor PDF & Pengaturan Halaman)
+   *  INVITATIONS (Sistem Master A4 + Scale Proporsional)
    * ============================================================ */
+  let invState = { page: 1, limit: 20, total: 0, allData: [] };
+
   async function invitations() {
     clearAllPolls();
     cleanupSignPad();
     safeQRStop();
+
+    invState = { page: 1, limit: 10, total: 0, allData: [] };
 
     const el = view();
     if (!el) return;
@@ -784,13 +788,19 @@ Ani,02,02,Jl. Melati,085678"></textarea>
             <button class="btn-primary btn-sm" id="btnPrint" type="button">🖨️ Cetak</button>
           </div>
         </div>
-        <div class="row" style="margin-top:12px">
-          <input class="input" id="invSearch" placeholder="Cari nama pemilih…" style="flex:1">
+        
+        <div class="row" style="margin-top:12px; align-items:center;">
+          <input class="input" id="invSearch" placeholder="Cari nama pemilih…" style="flex:1; min-width:200px;">
+          <div id="invPagination" style="display:flex; gap:8px; align-items:center;">
+            <!-- Pagination -->
+          </div>
         </div>
       </div>
       
-      <div id="invPrintArea" style="margin-top:16px; background:#e2e8f0; padding: 20px; overflow-x: auto;">
-        ${UI.skeleton(3)}
+      <div style="overflow-x: auto; padding: 20px 0;">
+        <div id="invPrintArea" class="preview-zoom">
+          ${UI.skeleton(3)}
+        </div>
       </div>
     `;
 
@@ -800,7 +810,7 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     const layout = document.getElementById('invLayout');
 
     const triggerPrint = () => {
-      setTimeout(() => window.print(), 100);
+      setTimeout(() => window.print(), 150);
     };
 
     if (btnPrint) btnPrint.onclick = triggerPrint;
@@ -809,14 +819,31 @@ Ani,02,02,Jl. Melati,085678"></textarea>
       triggerPrint();
     };
     
-    if (search) search.addEventListener('input', UI.debounce(() => loadInvitations(), 300));
-    if (layout) layout.addEventListener('change', () => loadInvitations());
+    if (search) {
+      search.addEventListener('input', UI.debounce(() => {
+        invState.page = 1;
+        loadInvitations();
+      }, 300));
+    }
+    
+    if (layout) {
+      layout.addEventListener('change', () => {
+        const l = layout.value;
+        if (l === 'layout-1') invState.limit = 5;
+        if (l === 'layout-2') invState.limit = 10;
+        if (l === 'layout-4') invState.limit = 20;
+        if (l === 'layout-6') invState.limit = 24;
+        invState.page = 1;
+        loadInvitations();
+      });
+    }
 
     await loadInvitations();
   }
 
   async function loadInvitations() {
     const area = document.getElementById('invPrintArea');
+    const pag = document.getElementById('invPagination');
     if (!area) return;
 
     let vr, sr;
@@ -851,87 +878,123 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     let list = vr.data || [];
     if (kw) list = list.filter(v => String(v.name || '').toLowerCase().indexOf(kw) !== -1);
 
+    invState.allData = list;
+    invState.total = list.length;
+
     if (!list.length) {
       area.innerHTML = `<p class="hint" style="color:#000">Tidak ada pemilih.</p>`;
+      if (pag) pag.innerHTML = '';
       return;
+    }
+
+    const totalPages = Math.ceil(invState.total / invState.limit) || 1;
+    if (invState.page > totalPages) invState.page = totalPages;
+
+    const startIdx = (invState.page - 1) * invState.limit;
+    const endIdx = startIdx + invState.limit;
+    const pageData = list.slice(startIdx, endIdx);
+
+    if (pag) {
+      pag.innerHTML = `
+        <button class="btn-ghost btn-sm" type="button" ${invState.page <= 1 ? 'disabled' : ''} onclick="ViewsAdmin.prevInvPage()">Sebelumnya</button>
+        <span class="hint" style="margin:0 8px;">Hal ${invState.page} dari ${totalPages} (Total: ${invState.total})</span>
+        <button class="btn-ghost btn-sm" type="button" ${invState.page >= totalPages ? 'disabled' : ''} onclick="ViewsAdmin.nextInvPage()">Selanjutnya</button>
+      `;
     }
 
     const layoutEl = document.getElementById('invLayout');
     const layoutClass = (layoutEl && layoutEl.value) || 'layout-2';
 
-    let qrSize = 100;
-    if (layoutClass === 'layout-4') qrSize = 80;
-    if (layoutClass === 'layout-6') qrSize = 60;
-
-    area.innerHTML = `<div class="invitations-sheet ${layoutClass}">
-      ${list.map(v => {
-        const signHtml = signerSig ? `<img src="${esc(signerSig)}" alt="TTD">` : '';
-        
-        return `
-        <div class="invite">
-          <div class="invite-inner">
-            <div class="kop-surat">
-              <img src="assets/logo.svg" alt="Logo RAS" onerror="this.style.display='none'">
-              <div class="kop-text">
-                <div class="kop-title">PERKUMPULAN PEMUDA-PEMUDI</div>
-                <div class="kop-title">RUKUN AGAWE SANTOSA (RAS)</div>
-                <div class="kop-sub">Jl. Parangtritis Km 6,5 Ngijo Bangunharjo</div>
-                <div class="kop-sub">Sewon Bantul</div>
-              </div>
-            </div>
-
-            <div class="surat-body">
-              <div class="surat-header">
-                <div class="hal-undangan">Hal: Undangan</div>
-                <div class="kepada-yth">
-                  <div>Kepada Bapak/Ibu/Sdr:</div>
-                  <div class="nama-pemilih">${esc(v.name)}</div>
+    const renderInvite = (v) => {
+      const signHtml = signerSig ? `<img src="${esc(signerSig)}" alt="TTD">` : '';
+      return `
+        <div class="invite-wrapper">
+          <div class="invite" id="inv-${esc(v.id)}">
+            <div class="invite-inner">
+              <div class="kop-surat">
+                <img src="assets/logo.svg" alt="Logo RAS" onerror="this.style.display='none'">
+                <div class="kop-text">
+                  <div class="kop-title">PERKUMPULAN PEMUDA-PEMUDI</div>
+                  <div class="kop-title">RUKUN AGAWE SANTOSA (RAS)</div>
+                  <div class="kop-sub">Jl. Parangtritis Km 6,5 Ngijo Bangunharjo</div>
+                  <div class="kop-sub">Sewon Bantul</div>
                 </div>
-                <div class="di-tempat">Di Tempat</div>
               </div>
 
-              <div class="surat-isi">
-                <p>Dengan Hormat,</p>
-                <p>Mengharap kehadiran yang akan diselenggarakan pada:</p>
-                <table class="surat-tabel">
-                  <tr><td class="label">Hari,tanggal</td><td>:</td><td>${esc(formattedDate)}</td></tr>
-                  <tr><td class="label">Pukul</td><td>:</td><td>19.30 – Selesai</td></tr>
-                  <tr><td class="label">Tempat</td><td>:</td><td>${esc(eventLoc)}</td></tr>
-                  <tr><td class="label">Acara</td><td>:</td><td>${esc(eventName)}</td></tr>
-                </table>
-                <p class="penutup">Demikian atas perhatian dan kehadiran kami mengucapkan terima kasih.</p>
-              </div>
-
-              <div class="surat-ttd">
-                <div class="ttd-box" style="width:45%;">
-                  <div class="qr-scan-wrapper">
-                    <div class="qr-image" id="qr-${esc(v.id)}"></div>
-                    <div class="qr-code-text">${esc(v.code || '-')}</div>
+              <div class="surat-body">
+                <div class="surat-header">
+                  <div class="hal-undangan">Hal: Undangan</div>
+                  <div class="kepada-yth">
+                    <div>Kepada Bapak/Ibu/Sdr:</div>
+                    <div class="nama-pemilih">${esc(v.name)}</div>
                   </div>
-                  <div class="ttd-nama">Kode Pemilih</div>
+                  <div class="di-tempat">Di Tempat</div>
                 </div>
-                
-                <div class="ttd-box" style="width:45%;">
-                  <div class="ttd-jabatan">Hormat kami,<br>${esc(signerName)}</div>
-                  <div class="ttd-space">${signHtml}</div>
-                  <div class="ttd-nama">( ${esc(signerName)} )</div>
-                </div>
-              </div>
 
+                <div class="surat-isi">
+                  <p>Dengan Hormat,</p>
+                  <p>Mengharap kehadiran yang akan diselenggarakan pada:</p>
+                  <table class="surat-tabel">
+                    <tr><td class="label">Hari,tanggal</td><td>:</td><td>${esc(formattedDate)}</td></tr>
+                    <tr><td class="label">Pukul</td><td>:</td><td>19.30 – Selesai</td></tr>
+                    <tr><td class="label">Tempat</td><td>:</td><td>${esc(eventLoc)}</td></tr>
+                    <tr><td class="label">Acara</td><td>:</td><td>${esc(eventName)}</td></tr>
+                  </table>
+                  <p class="penutup">Demikian atas perhatian dan kehadiran kami mengucapkan terima kasih.</p>
+                </div>
+
+                <div class="surat-ttd">
+                  <div class="ttd-box" style="width:45%;">
+                    <div class="qr-scan-wrapper">
+                      <div class="qr-image" id="qr-${esc(v.id)}"></div>
+                      <div class="qr-code-text">Kode: ${esc(v.code || '-')}</div>
+                    </div>
+                    <div class="ttd-nama">Kode Pemilih</div>
+                  </div>
+                  
+                  <div class="ttd-box" style="width:45%;">
+                    <div class="ttd-jabatan">Hormat kami,<br>${esc(signerName)}</div>
+                    <div class="ttd-space">${signHtml}</div>
+                    <div class="ttd-nama">( ${esc(signerName)} )</div>
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
-        </div>`;
-      }).join('')}
+        </div>
+      `;
+    };
+
+    area.innerHTML = `<div class="invitations-sheet ${layoutClass}">
+      ${pageData.map(renderInvite).join('')}
     </div>`;
 
     setTimeout(() => {
-      list.forEach(v => {
+      pageData.forEach(v => {
         const container = document.getElementById('qr-' + v.id);
         if (container && window.QR) {
-          try { QR.generate(container, v.code || v.id, qrSize); } catch (_) {}
+          try { QR.generate(container, v.code || v.id, 150); } catch (_) {}
         }
       });
-    }, 100);
+    }, 150);
+  }
+
+  function prevInvPage() {
+    if (invState.page > 1) {
+      invState.page--;
+      loadInvitations();
+      window.scrollTo(0, 0);
+    }
+  }
+
+  function nextInvPage() {
+    const totalPages = Math.ceil(invState.total / invState.limit) || 1;
+    if (invState.page < totalPages) {
+      invState.page++;
+      loadInvitations();
+      window.scrollTo(0, 0);
+    }
   }
 
   /* ============================================================
@@ -1272,6 +1335,8 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     deleteBooth,
     editUser,
     deleteUser,
+    prevInvPage,
+    nextInvPage,
     _clearAllPolls: function () {
       clearAllPolls();
       cleanupSignPad();
