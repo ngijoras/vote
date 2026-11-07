@@ -809,33 +809,16 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     const search = document.getElementById('invSearch');
     const layout = document.getElementById('invLayout');
 
-    // FUNGSI: Menunggu semua gambar (Termasuk QR Code Canvas) siap 100%
-    const triggerPrintWithDelay = async () => {
+    // FUNGSI PENUNDA WAKTU: 3 Detik Jeda (Menjamin QR & TTD ter-render)
+    const triggerPrintWithDelay = () => {
       if (btnPrint) { btnPrint.disabled = true; btnPrint.textContent = '⏳ Menyiapkan...'; }
       if (btnExportPdf) { btnExportPdf.disabled = true; }
       
-      try {
-        const images = document.querySelectorAll('#invPrintArea img');
-        await Promise.all(Array.from(images).map(img => {
-          if (img.complete) return Promise.resolve();
-          return new Promise(resolve => {
-            img.onload = resolve;
-            img.onerror = resolve; // Lanjutkan meski gambar gagal load
-          });
-        }));
-        
-        // Tambahan delay 800ms untuk memastikan Canvas QR Code sudah ter-render sempurna
-        setTimeout(() => {
-          window.print();
-          if (btnPrint) { btnPrint.disabled = false; btnPrint.textContent = '🖨️ Cetak'; }
-          if (btnExportPdf) { btnExportPdf.disabled = false; }
-        }, 800);
-        
-      } catch (e) {
+      setTimeout(() => {
         window.print();
         if (btnPrint) { btnPrint.disabled = false; btnPrint.textContent = '🖨️ Cetak'; }
         if (btnExportPdf) { btnExportPdf.disabled = false; }
-      }
+      }, 3000); 
     };
 
     if (btnPrint) btnPrint.onclick = triggerPrintWithDelay;
@@ -891,7 +874,6 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     const eventName = settings.event_name || 'Pemilihan';
     const eventLoc = settings.event_location || '-';
     
-    // Format Tanggal
     let formattedDate = '-';
     if (settings.election_date) {
       const d = new Date(settings.election_date);
@@ -933,7 +915,7 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     const layoutClass = (layoutEl && layoutEl.value) || 'layout-2';
 
     const renderInvite = (v) => {
-      // Konversi URL Google Drive ke format Thumbnail agar lebih stabil saat di-print
+      // Konversi URL Google Drive ke format Thumbnail (lebih stabil untuk print)
       let finalSig = signerSig;
       if (finalSig && finalSig.includes('drive.google.com')) {
         const match = finalSig.match(/\/d\/([a-zA-Z0-9_-]+)/);
