@@ -1,11 +1,6 @@
 /* ============================================================
    E-VOTE • sign.js
-   Pendekatan IDENTIK dengan absensi.js (yang berhasil di PC)
-   - DPR-aware canvas
-   - Simple coordinate math
-   - mouseleave handler
-   - Fixed-size export (600×180) → aman di Google Sheets
-   - PNG (preserve quality) → fallback JPEG jika kepanjangan
+   Versi Anti-Gagal (mengadopsi absensi.js)
    ============================================================ */
 window.Sign = (function () {
   'use strict';
@@ -13,13 +8,6 @@ window.Sign = (function () {
   function mount(container, opts) {
     if (!container) throw new Error('Sign.mount: container required');
     container.innerHTML = '';
-
-    const o = Object.assign({
-      lineColor: '#0f172a',
-      lineWidth: 2.5,
-      exportWidth: 600,
-      exportHeight: 180
-    }, opts || {});
 
     const canvas = document.createElement('canvas');
     canvas.style.cssText = `
@@ -42,7 +30,7 @@ window.Sign = (function () {
     let lastX = 0, lastY = 0;
     let hasDraw = false;
 
-    // ── DPR-AWARE SETUP (KUNCI SUKSES ABSENSI) ──
+    // ── DPR-AWARE SETUP ──
     function setupCanvas() {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -57,13 +45,13 @@ window.Sign = (function () {
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
-      ctx.lineWidth   = o.lineWidth;
+      ctx.lineWidth   = 2.5;
       ctx.lineCap     = 'round';
       ctx.lineJoin    = 'round';
-      ctx.strokeStyle = o.lineColor;
+      ctx.strokeStyle = '#0f172a';
       ctx.fillStyle   = '#ffffff';
       ctx.fillRect(0, 0, rect.width, rect.height);
-      ctx.fillStyle   = o.lineColor;
+      ctx.fillStyle   = '#0f172a';
 
       if (oldContent) {
         const img = new Image();
@@ -81,7 +69,7 @@ window.Sign = (function () {
     };
     window.addEventListener('resize', onResize);
 
-    // ── SIMPLE COORDINATE (NO SCALING - karena ctx.scale sudah handle) ──
+    // ── EVENT HANDLERS ──
     function getPos(e) {
       const rect = canvas.getBoundingClientRect();
       let cx, cy;
@@ -121,18 +109,17 @@ window.Sign = (function () {
       drawing = false;
     }
 
-    // ── LISTENERS (persis absensi) ──
+    // Attach listeners
     canvas.addEventListener('mousedown', start);
     canvas.addEventListener('mousemove', draw);
     canvas.addEventListener('mouseup', stop);
-    canvas.addEventListener('mouseleave', stop);   // ← KUNCI PC
+    canvas.addEventListener('mouseleave', stop);
     canvas.addEventListener('touchstart', start, { passive: false });
     canvas.addEventListener('touchmove',  draw,  { passive: false });
     canvas.addEventListener('touchend',   stop);
     canvas.addEventListener('touchcancel', stop);
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-    // ── PUBLIC API ──
     return {
       hasContent: function () {
         if (!hasDraw) return false;
@@ -146,7 +133,9 @@ window.Sign = (function () {
           return hasDraw;
         }
       },
-      isEmpty: function () { return !this.hasContent(); },
+      isEmpty: function () {
+        return !this.hasContent();
+      },
       clear: function () {
         const rect = canvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
@@ -154,23 +143,21 @@ window.Sign = (function () {
         ctx.scale(dpr, dpr);
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, rect.width, rect.height);
-        ctx.fillStyle = o.lineColor;
-        ctx.strokeStyle = o.lineColor;
-        ctx.lineWidth = o.lineWidth;
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = '#0f172a';
         hasDraw = false;
       },
       toDataURL: function () {
-        // FIXED-SIZE EXPORT (aman dari limit Google Sheets 50k)
+        // Ekspor gambar dengan ukuran pasti (aman dari limit Google Sheets)
         const exp = document.createElement('canvas');
-        exp.width  = o.exportWidth;
-        exp.height = o.exportHeight;
+        exp.width  = 600;
+        exp.height = 180;
         const ectx = exp.getContext('2d');
         ectx.fillStyle = '#ffffff';
         ectx.fillRect(0, 0, exp.width, exp.height);
         ectx.drawImage(canvas, 0, 0, exp.width, exp.height);
 
         let url = exp.toDataURL('image/png');
-        // Jika PNG terlalu besar (>38000 chars), fallback ke JPEG
         if (url.length > 38000) {
           url = exp.toDataURL('image/jpeg', 0.8);
         }

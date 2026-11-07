@@ -56,9 +56,6 @@ window.ViewsAdmin = (function () {
     });
   }
 
-  /* ============================================================
-   *  DASHBOARD
-   * ============================================================ */
   async function dashboard() {
     clearAllPolls();
     const el = view();
@@ -100,9 +97,6 @@ window.ViewsAdmin = (function () {
     }
   }
 
-  /* ============================================================
-   *  SETTINGS — TTD Robust (Port dari absensi.js)
-   * ============================================================ */
   async function settings() {
     clearAllPolls();
     const el = view();
@@ -201,7 +195,6 @@ window.ViewsAdmin = (function () {
 
       refreshPreview();
 
-      // Tombol Hapus
       document.getElementById('btnClearSig').onclick = () => {
         currentSigData = '';
         sigPad.clear();
@@ -209,8 +202,7 @@ window.ViewsAdmin = (function () {
         UI.toast('TTD dihapus dari preview. Klik Simpan untuk konfirmasi.', 'info', 3000);
       };
 
-      // Tombol Test Simpan (untuk verifikasi sebelum save final)
-      document.getElementById('btnVerifySig').onclick = async () => {
+      document.getElementById('btnVerifySig').onclick = () => {
         if (sigPad.isEmpty()) {
           UI.toast('Canvas kosong, tidak ada yang perlu di-test', 'warn');
           return;
@@ -220,7 +212,6 @@ window.ViewsAdmin = (function () {
                  data.length > 47000 ? 'warn' : 'success', 5000);
       };
 
-      // Submit
       document.getElementById('settingsForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btnSaveSettings');
@@ -231,32 +222,22 @@ window.ViewsAdmin = (function () {
         let isoDate = '';
         if (dateVal) isoDate = new Date(dateVal).toISOString();
 
-        // Tentukan sigData yang akan disimpan
         let sigDataToSave = currentSigData;
         
-        // KUNCI: Cek canvas DENGAN hasContent() bukan isEmpty()
-        // isEmpty() = !hasDrawn (bisa false positive)
-        // hasContent() = cek pixel data (real check)
-        if (sigPad.hasContent && sigPad.hasContent()) {
+        if (!sigPad.isEmpty()) {
           sigDataToSave = sigPad.toDataURL();
-          console.log('[settings] TTD baru akan disimpan, ukuran:', sigDataToSave.length, 'chars');
-        } else if (!currentSigData) {
-          sigDataToSave = '';
         }
 
-        // Validasi ukuran
         if (sigDataToSave.length > 47000) {
           UI.toast('❌ TTD terlalu besar (' + sigDataToSave.length + ' char). Coba gambar lebih kecil.', 'error', 6000);
           btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan';
           return;
         }
 
-        // Simpan pengaturan lain
         await API.post('settings.save', { key: 'election_date', value: isoDate });
         await API.post('settings.save', { key: 'event_name', value: fd.get('event_name') });
         await API.post('settings.save', { key: 'invitation_signer', value: fd.get('invitation_signer') });
         
-        // Simpan TTD
         const saveRes = await API.post('settings.save', {
           key: 'invitation_signature',
           value: sigDataToSave
@@ -268,7 +249,7 @@ window.ViewsAdmin = (function () {
           return;
         }
 
-        // === VERIFIKASI: Reload dari server ===
+        // VERIFIKASI
         const verifyRes = await API.post('list', { sheet: 'settings' });
         let verifiedSig = '';
         if (verifyRes.success) {
@@ -293,9 +274,6 @@ window.ViewsAdmin = (function () {
     }, 150);
   }
 
-  /* ============================================================
-   *  VOTERS
-   * ============================================================ */
   let allVoters = [];
   let voterSearchQ = '';
   let voterSortBy = 'name_asc';
@@ -537,9 +515,6 @@ window.ViewsAdmin = (function () {
     });
   }
 
-  /* ============================================================
-   *  CANDIDATES
-   * ============================================================ */
   let allCandidates = [];
 
   async function candidates() {
@@ -699,9 +674,6 @@ window.ViewsAdmin = (function () {
     await loadCandidates();
   }
 
-  /* ============================================================
-   *  BOOTHS
-   * ============================================================ */
   let allBooths = [];
 
   async function booths() {
@@ -800,9 +772,6 @@ window.ViewsAdmin = (function () {
     await loadBooths();
   }
 
-  /* ============================================================
-   *  USERS
-   * ============================================================ */
   let allUsers = [];
 
   async function users() {
@@ -955,9 +924,6 @@ window.ViewsAdmin = (function () {
     await loadUsers();
   }
 
-  /* ============================================================
-   *  INVITATIONS
-   * ============================================================ */
   let invLayoutMode = '4';
   let invPage = 1;
   const invPerPage = 40;
@@ -1159,9 +1125,6 @@ window.ViewsAdmin = (function () {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'daftar-pemilih.csv'; a.click();
   }
 
-  /* ============================================================
-   *  RESULTS
-   * ============================================================ */
   let lastResultsData = null;
 
   async function results() {
@@ -1231,9 +1194,6 @@ window.ViewsAdmin = (function () {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hasil-pemilihan.csv'; a.click();
   }
 
-  /* ============================================================
-   *  BERITA ACARA
-   * ============================================================ */
   async function beritaAcara() {
     clearAllPolls();
     const el = view();
