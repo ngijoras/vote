@@ -857,7 +857,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  INVITATIONS
+   *  INVITATIONS (Format Surat Formal)
    * ============================================================ */
   async function invitations() {
     clearAllPolls();
@@ -875,7 +875,9 @@ window.ViewsAdmin = (function () {
     }
     
     const voters = r.data || [];
-    let signerName = me().name || 'Panitia';
+    let signerName = me().name || 'Ketua Panitia';
+    let ketuaName = 'Ketua RAS'; 
+
     if (st.success && st.data) {
       const map = {};
       st.data.forEach(s => map[s.key] = s.value);
@@ -889,7 +891,7 @@ window.ViewsAdmin = (function () {
     }
 
     const today = new Date();
-    const todayStr = today.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+    const dateStr = today.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
 
     area.innerHTML = `
       <div class="row-between">
@@ -906,21 +908,58 @@ window.ViewsAdmin = (function () {
     voters.forEach(v => {
       const cell = document.createElement('div');
       cell.className = 'invite';
+      
       cell.innerHTML = `
         <div class="invite-inner">
-          <div class="kop">
+          <div class="kop-surat">
             <img src="assets/logo.svg" alt="" onerror="this.style.visibility='hidden'">
-            <div><div class="kop-title">PANITIA PEMILIHAN</div><div class="kop-sub">Ketua RT / Ketua &amp; Wakil Pemuda</div></div>
+            <div class="kop-text">
+              <div class="kop-title">PERKUMPULAN PEMUDA-PEMUDI</div>
+              <div class="kop-title">RUKUN AGAWE SANTOSA (RAS)</div>
+              <div class="kop-sub">Jl. Parangtritis Km 6,5 Ngijo Bangunharjo Sewon Bantul</div>
+            </div>
           </div>
-          <div class="inv-head">
-            <div>No: <strong>INV/${today.getFullYear()}/${String(v.code).slice(-6)}</strong></div>
-            <div>${esc(todayStr)}</div>
+          
+          <div class="surat-body">
+            <div class="surat-header">
+              <span>Hal: Undangan Pemilihan</span>
+              <div class="surat-tujuan">
+                Kepada Bapak/Ibu/Sdr:<br>
+                <strong class="nama-pemilih">${esc(v.name)}</strong><br>
+                <span style="font-size: 10px; color: #444;">RT ${esc(v.rt || '-')} / RW ${esc(v.rw || '-')}</span>
+              </div>
+            </div>
+            
+            <div class="surat-isi">
+              <p>Dengan Hormat,</p>
+              <p>Mengharap kehadiran Bapak/Ibu/Sdr pada acara <strong>Pemungutan Suara</strong> yang akan diselenggarakan pada:</p>
+              
+              <table class="surat-tabel">
+                <tr><td>Hari, tanggal</td><td>:</td><td><strong>_______________________</strong></td></tr>
+                <tr><td>Pukul</td><td>:</td><td>08.00 WIB - Selesai</td></tr>
+                <tr><td>Tempat</td><td>:</td><td>Balai RW / Gedung TPA</td></tr>
+                <tr><td>Acara</td><td>:</td><td>Pemilihan Ketua RT & Ketua Pemuda</td></tr>
+              </table>
+              
+              <p>Demikian atas perhatian dan kehadiran Bapak/Ibu/Sdr, kami mengucapkan terima kasih.</p>
+            </div>
+            
+            <div class="surat-ttd">
+              <!-- Kiri: QR Code menimpa Ketua RAS -->
+              <div class="ttd-box">
+                <div class="ttd-jabatan">Ketua RAS,</div>
+                <div class="qr-wrapper" id="qr-${esc(v.id)}"></div>
+                <div class="ttd-nama">${esc(ketuaName)}</div>
+              </div>
+              
+              <!-- Kanan: TTD Ketua Panitia -->
+              <div class="ttd-box">
+                <div class="ttd-jabatan">Hormat kami,<br>Ketua Panitia</div>
+                <div style="height: 55px;"></div>
+                <div class="ttd-nama">${esc(signerName)}</div>
+              </div>
+            </div>
           </div>
-          <p class="inv-body">Dengan hormat, mengharap kehadiran <strong>${esc(v.name)}</strong> pada acara <strong>Pemungutan Suara</strong> yang akan dilaksanakan pada:</p>
-          <p class="inv-body"><strong>Hari/Tanggal:</strong> ___________________<br><strong>Tempat:</strong> Balai RW<br><strong>Acara:</strong> Pemilihan Ketua RT / Pemuda</p>
-          <p class="inv-body">Tunjukkan QR di bawah kepada petugas:</p>
-          <div class="inv-qr" id="qr-${esc(v.id)}"></div>
-          <div class="inv-sign"><div>Hormat kami,<br>${esc(signerName)}</div><div class="sign-line"></div></div>
         </div>`;
       sheet.appendChild(cell);
     });
@@ -928,7 +967,9 @@ window.ViewsAdmin = (function () {
     await new Promise(r => setTimeout(r, 60));
     voters.forEach(v => {
       const qrEl = document.getElementById('qr-' + v.id);
-      if (qrEl) try { QR.generate(qrEl, v.code, 110); } catch (e) {}
+      if (qrEl) try { 
+        QR.generate(qrEl, v.code, 90);
+      } catch (e) { console.error('QR Error', e); }
     });
   }
 
@@ -968,7 +1009,6 @@ window.ViewsAdmin = (function () {
   async function refreshResults() {
     const box = document.getElementById('resultsBox');
     if (!box) return;
-    // Real-time bypass cache
     const r = await API.post('results');
     if (!r.success) { box.innerHTML = `<p class="hint" style="color:var(--err)">${esc(r.message || 'Gagal')}</p>`; return; }
     
