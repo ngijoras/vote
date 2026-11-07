@@ -21,6 +21,7 @@ window.ViewsAdmin = (function () {
     return (prefix || 'V') + Date.now().toString(36).toUpperCase().slice(-6) + Math.random().toString(36).slice(2, 4).toUpperCase();
   }
 
+  /* ---------- Polling ---------- */
   const polls = {};
   function setPoll(id, ms, fn) {
     clearPoll(id);
@@ -32,6 +33,7 @@ window.ViewsAdmin = (function () {
   function clearPoll(id) { if (polls[id]) { clearInterval(polls[id]); delete polls[id]; } }
   function clearAllPolls() { Object.keys(polls).forEach(clearPoll); }
 
+  /* ---------- Image resize ---------- */
   function resizeImageFile(file, maxSize = 300, quality = 0.75) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -56,6 +58,9 @@ window.ViewsAdmin = (function () {
     });
   }
 
+  /* ============================================================
+   *  DASHBOARD
+   * ============================================================ */
   async function dashboard() {
     clearAllPolls();
     const el = view();
@@ -97,6 +102,9 @@ window.ViewsAdmin = (function () {
     }
   }
 
+  /* ============================================================
+   *  SETTINGS (Dengan TTD Digital Base64)
+   * ============================================================ */
   async function settings() {
     clearAllPolls();
     const el = view();
@@ -162,19 +170,20 @@ window.ViewsAdmin = (function () {
       </form>
     `;
 
+    // Beri jeda 100ms agar DOM selesai render
     setTimeout(() => {
       const sigHost = document.getElementById('sigPadSettings');
       const sigPreviewArea = document.getElementById('sigPreviewArea');
       const sigPreviewImg = document.getElementById('sigPreviewImg');
       const sigPad = Sign.mount(sigHost);
       
-      let currentSigUrl = settingsMap.invitation_signature || '';
+      let currentSigData = settingsMap.invitation_signature || '';
 
       function refreshPreview() {
-        if (currentSigUrl && currentSigUrl.length > 10) {
+        if (currentSigData && currentSigData.length > 10) {
           sigHost.style.display = 'none';
           sigPreviewArea.style.display = 'block';
-          sigPreviewImg.src = currentSigUrl;
+          sigPreviewImg.src = currentSigData;
         } else {
           sigHost.style.display = 'block';
           sigPreviewArea.style.display = 'none';
@@ -184,7 +193,7 @@ window.ViewsAdmin = (function () {
       refreshPreview();
 
       document.getElementById('btnClearSig').onclick = () => {
-        currentSigUrl = '';
+        currentSigData = '';
         sigPad.clear();
         refreshPreview();
       };
@@ -199,21 +208,21 @@ window.ViewsAdmin = (function () {
         let isoDate = '';
         if (dateVal) isoDate = new Date(dateVal).toISOString();
 
-        let sigData = currentSigUrl;
+        let sigDataToSave = currentSigData;
         
-        // Jika admin menggambar TTD baru, ambil dari canvas
+        // Jika admin menggambar TTD baru, ambil dari canvas (sudah dikompres JPEG 0.4)
         if (!sigPad.isEmpty()) {
-          sigData = sigPad.toDataURL(); 
+          sigDataToSave = sigPad.toDataURL(); 
         }
 
         await API.post('settings.save', { key: 'election_date', value: isoDate });
         await API.post('settings.save', { key: 'event_name', value: fd.get('event_name') });
         await API.post('settings.save', { key: 'invitation_signer', value: fd.get('invitation_signer') });
         
-        const res = await API.post('settings.save', { key: 'invitation_signature', value: sigData });
+        const res = await API.post('settings.save', { key: 'invitation_signature', value: sigDataToSave });
         
         if (res.success && res.data && res.data.value) {
-          currentSigUrl = res.data.value;
+          currentSigData = res.data.value;
         }
 
         Cache.clearAll();
@@ -224,6 +233,9 @@ window.ViewsAdmin = (function () {
     }, 100);
   }
 
+  /* ============================================================
+   *  VOTERS
+   * ============================================================ */
   let allVoters = [];
   let voterSearchQ = '';
   let voterSortBy = 'name_asc';
@@ -253,6 +265,7 @@ window.ViewsAdmin = (function () {
     if (!area) return;
     
     const q = voterSearchQ.toLowerCase();
+    
     const uniqueRts = [...new Set(allVoters.map(v => v.rt).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
     
     let filtered = allVoters.filter(v => {
@@ -474,6 +487,9 @@ window.ViewsAdmin = (function () {
     });
   }
 
+  /* ============================================================
+   *  CANDIDATES
+   * ============================================================ */
   let allCandidates = [];
 
   async function candidates() {
@@ -633,6 +649,9 @@ window.ViewsAdmin = (function () {
     await loadCandidates();
   }
 
+  /* ============================================================
+   *  BOOTHS
+   * ============================================================ */
   let allBooths = [];
 
   async function booths() {
@@ -734,6 +753,9 @@ window.ViewsAdmin = (function () {
     await loadBooths();
   }
 
+  /* ============================================================
+   *  USERS
+   * ============================================================ */
   let allUsers = [];
 
   async function users() {
@@ -886,6 +908,9 @@ window.ViewsAdmin = (function () {
     await loadUsers();
   }
 
+  /* ============================================================
+   *  INVITATIONS
+   * ============================================================ */
   let invLayoutMode = '4';
   let invPage = 1;
   const invPerPage = 40;
@@ -1094,6 +1119,9 @@ window.ViewsAdmin = (function () {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'daftar-pemilih.csv'; a.click();
   }
 
+  /* ============================================================
+   *  RESULTS
+   * ============================================================ */
   let lastResultsData = null;
 
   async function results() {
@@ -1163,6 +1191,9 @@ window.ViewsAdmin = (function () {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hasil-pemilihan.csv'; a.click();
   }
 
+  /* ============================================================
+   *  BERITA ACARA
+   * ============================================================ */
   async function beritaAcara() {
     clearAllPolls();
     const el = view();
@@ -1318,6 +1349,9 @@ window.ViewsAdmin = (function () {
     w.document.close();
   }
 
+  /* ============================================================
+   *  EXPORTS
+   * ============================================================ */
   return {
     dashboard,
     voters, addVoter, editVoter, deleteVoter, searchVoters, setVoterSort, setVoterFilterRt, bulkImport,

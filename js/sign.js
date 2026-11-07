@@ -1,5 +1,5 @@
 /* ============================================================
-   E-VOTE • sign.js (Versi Brutal - Dijamin Jalan di PC)
+   E-VOTE • sign.js (Versi Brutal - Base64 Super Kecil)
    ============================================================ */
 window.Sign = (function () {
   'use strict';
@@ -9,10 +9,10 @@ window.Sign = (function () {
     container.innerHTML = '';
 
     const canvas = document.createElement('canvas');
+    // Resolusi kecil, hemat memori
     canvas.width = 400;
     canvas.height = 150;
     
-    // CSS Mencegah seleksi teks browser PC
     canvas.style.cssText = `
       width: 100%;
       height: auto;
@@ -36,7 +36,6 @@ window.Sign = (function () {
     ctx.lineJoin = 'round';
     ctx.strokeStyle = '#0f172a';
     
-    // Paksa background putih solid
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -47,44 +46,49 @@ window.Sign = (function () {
 
     function getPos(e) {
       const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
+      
+      let clientX = e.clientX;
+      let clientY = e.clientY;
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      }
+
       return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
       };
     }
 
     function start(e) {
-      // Abaikan klik kanan
-      if (e.button !== undefined && e.button !== 2) { // 0 = kiri
-        e.preventDefault();
-        isDrawing = true;
-        const pos = getPos(e);
-        lastX = pos.x;
-        lastY = pos.y;
-        
-        ctx.beginPath();
-        ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
-        ctx.fillStyle = '#0f172a';
-        ctx.fill();
-      }
+      if (e.button !== undefined && e.button !== 0) return; // Klik kiri aja
+      e.preventDefault();
+      isDrawing = true;
+      hasDrawn = true;
+      
+      const pos = getPos(e);
+      lastX = pos.x;
+      lastY = pos.y;
+      
+      ctx.beginPath();
+      ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#0f172a';
+      ctx.fill();
     }
 
-    // KUNCI: Event listener dipasang di WINDOW (seluruh layar)
-    // Jadi meskipun mouse keluar dari kotak, garis tetap dilacak.
     function draw(e) {
       if (!isDrawing) return;
-      e.preventDefault(); // Blokir seleksi teks
+      e.preventDefault();
       
       const pos = getPos(e);
       
-      // Hitung jarak gerak (jika terlalu kecil, abaikan)
+      // Abaikan getaran mikro agar tidak terlalu banyak titik
       const dx = pos.x - lastX;
       const dy = pos.y - lastY;
-      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return; // Abaikan getaran mikro
-      
-      hasDrawn = true; // Sah digambar jika ada pergerakan
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
       
       ctx.beginPath();
       ctx.moveTo(lastX, lastY);
@@ -100,14 +104,13 @@ window.Sign = (function () {
       isDrawing = false;
     }
 
-    // Gunakan PointerEvents (Mendukung Mouse, Touch, Stylus secara seragam)
+    // GLOBAL TRACKING (Anti hilang di PC)
     if (window.PointerEvent) {
       canvas.addEventListener('pointerdown', start);
       window.addEventListener('pointermove', draw);
       window.addEventListener('pointerup', stop);
       window.addEventListener('pointercancel', stop);
     } else {
-      // Fallback browser lawas
       canvas.addEventListener('mousedown', start);
       window.addEventListener('mousemove', draw);
       window.addEventListener('mouseup', stop);
@@ -128,7 +131,7 @@ window.Sign = (function () {
         ctx.strokeStyle = '#0f172a';
       },
       toDataURL: function () {
-        // Kompres ke JPEG kualitas 0.4 (Sangat kecil, aman dari limit Google Sheets)
+        // KOMPRESI JPEG 0.4: Ukuran pasti < 10.000 karakter
         return canvas.toDataURL('image/jpeg', 0.4);
       },
       getCanvas: function () { return canvas; }
