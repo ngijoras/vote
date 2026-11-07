@@ -251,11 +251,13 @@ tbody tr:last-child td { border-bottom: 0; }
 .surat-tabel td:nth-child(2) {
   width: 10px;
 }
+
+/* Area Tanda Tangan & QR Undangan */
 .surat-ttd {
   display: flex;
   justify-content: space-between;
+  align-items: flex-end;
   margin-top: auto;
-  text-align: center;
   padding-top: 20px;
 }
 .ttd-box {
@@ -263,28 +265,53 @@ tbody tr:last-child td { border-bottom: 0; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-end;
+  text-align: center;
 }
 .ttd-jabatan {
   font-size: 12px;
   margin-bottom: 8px;
 }
-.qr-wrapper {
-  width: 90px;
-  height: 90px;
-  margin: 0 auto;
+.qr-scan-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+.qr-image {
+  width: 85px;
+  height: 85px;
   display: flex;
   justify-content: center;
   align-items: center;
 }
-.qr-wrapper img, .qr-wrapper canvas {
+.qr-image img, .qr-image canvas {
   width: 100% !important;
   height: 100% !important;
+}
+.qr-code-text {
+  font-size: 11px;
+  font-weight: bold;
+  margin-top: 6px;
+  letter-spacing: 0.5px;
+}
+.ttd-space {
+  height: 85px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ttd-space img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
 }
 .ttd-nama {
   font-size: 12px;
   font-weight: bold;
   text-decoration: underline;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 /* ---------- Results ---------- */
