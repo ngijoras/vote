@@ -1,6 +1,5 @@
 /* ============================================================
-   E-VOTE • sign.js
-   Tanda Tangan Digital — Canvas-based (Sangat Robust untuk PC)
+   E-VOTE • sign.js (Versi Anti-Gagal PC)
    ============================================================ */
 window.Sign = (function () {
   'use strict';
@@ -8,169 +7,135 @@ window.Sign = (function () {
   function mount(container, opts) {
     if (!container) throw new Error('Sign.mount: container element required');
 
-    const o = Object.assign({
-      width: 600,
-      height: 200,
-      bgColor: '#ffffff',
-      strokeColor: '#0f172a',
-      strokeWidth: 2.5
-    }, opts || {});
-
     container.innerHTML = '';
-
-    const canvas = document.createElement('canvas');
-    canvas.width = o.width;
-    canvas.height = o.height;
     
-    // CSS Pencegahan Seleksi Teks & Gesture
+    // Set ukuran canvas yang solid
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 200;
+    
+    // CSS Mencegah seleksi teks & gesture browser
     canvas.style.cssText = `
       width: 100%;
       height: auto;
-      aspect-ratio: ${o.width}/${o.height};
-      background: ${o.bgColor};
+      aspect-ratio: 600 / 200;
+      background: #ffffff;
       border-radius: 8px;
       cursor: crosshair;
       display: block;
+      touch-action: none;
       user-select: none;
       -webkit-user-select: none;
-      -ms-user-select: none;
-      touch-action: none;
     `;
     
     container.appendChild(canvas);
-
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Sign.mount: canvas 2d context unavailable');
-
-    ctx.lineWidth = o.strokeWidth;
+    
+    ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = o.strokeColor;
+    ctx.strokeStyle = '#0f172a';
     
-    // Isi background putih solid di awal
-    ctx.fillStyle = o.bgColor;
+    // Selalu isi background putih
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    let drawing = false;
-    let activePointerId = null;
-    let prevPos = null;
-    let hasStrokes = false;
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    let hasDrawn = false;
 
-    function getPos(e) {
+    // Fungsi menghitung koordinat presisi
+    function getCoordinates(e) {
       const rect = canvas.getBoundingClientRect();
-      const sx = canvas.width / rect.width;
-      const sy = canvas.height / rect.height;
+      
+      // Validasi agar tidak error jika canvas belum tampil
+      if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
+
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      let clientX = e.clientX;
+      let clientY = e.clientY;
+
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      }
+
       return {
-        x: (e.clientX - rect.left) * sx,
-        y: (e.clientY - rect.top) * sy
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
       };
     }
 
-    function onPointerDown(e) {
-      // Hanya respon klik kiri (mouse) atau sentuhan pertama
-      if (e.button !== undefined && e.button !== 0) return;
-      if (activePointerId !== null) return;
+    function startDrawing(e) {
+      if (e.button === 2) return; // Abaikan klik kanan
+      e.preventDefault(); // Cegah drag & drop teks browser
       
-      activePointerId = e.pointerId;
+      isDrawing = true;
+      hasDrawn = true;
       
-      // KUNCI UTAMA PC: Pointer capture memastikan mouse terus terlacak meski keluar area
-      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
-
-      drawing = true;
-      hasStrokes = true;
-      prevPos = getPos(e);
+      const pos = getCoordinates(e);
+      lastX = pos.x;
+      lastY = pos.y;
       
-      // Buat titik awal (dot)
+      // Gambar titik awal
       ctx.beginPath();
-      ctx.arc(prevPos.x, prevPos.y, o.strokeWidth / 2, 0, Math.PI * 2);
-      ctx.fillStyle = o.strokeColor;
+      ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#0f172a';
       ctx.fill();
-      
-      e.preventDefault();
     }
 
-    function onPointerMove(e) {
-      if (!drawing || e.pointerId !== activePointerId) return;
+    // Fungsi Inti: Dilacak dari window agar tidak terputus saat mouse keluar
+    function draw(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
       
-      const currentPos = getPos(e);
+      const pos = getCoordinates(e);
       
       ctx.beginPath();
-      ctx.moveTo(prevPos.x, prevPos.y);
-      ctx.lineTo(currentPos.x, currentPos.y);
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(pos.x, pos.y);
       ctx.stroke();
       
-      prevPos = currentPos;
-      e.preventDefault();
+      lastX = pos.x;
+      lastY = pos.y;
     }
 
-    function onPointerUp(e) {
-      if (e.pointerId !== activePointerId) return;
-      
-      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
-      
-      drawing = false;
-      activePointerId = null;
-      prevPos = null;
-      e.preventDefault();
+    function stopDrawing(e) {
+      if (!isDrawing) return;
+      isDrawing = false;
     }
 
-    function onPointerCancel(e) {
-      if (e.pointerId !== activePointerId) return;
-      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
-      drawing = false;
-      activePointerId = null;
-      prevPos = null;
-    }
+    // Attach Events (Mouse & Touch)
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('touchstart', startDrawing, {passive: false});
+    
+    // Listener global di Window (Kunci utama tidak putus saat keluar kotak)
+    window.addEventListener('mousemove', draw);
+    window.addEventListener('touchmove', draw, {passive: false});
+    
+    window.addEventListener('mouseup', stopDrawing);
+    window.addEventListener('touchend', stopDrawing);
+    window.addEventListener('touchcancel', stopDrawing);
 
-    // Attach Listeners (Prioritas Pointer Events)
-    if (window.PointerEvent) {
-      canvas.addEventListener('pointerdown', onPointerDown);
-      canvas.addEventListener('pointermove', onPointerMove);
-      canvas.addEventListener('pointerup', onPointerUp);
-      canvas.addEventListener('pointercancel', onPointerCancel);
-    } else {
-      // Fallback untuk browser lawas
-      canvas.addEventListener('mousedown', onPointerDown);
-      window.addEventListener('mousemove', onPointerMove);
-      window.addEventListener('mouseup', onPointerUp);
-      canvas.addEventListener('touchstart', onPointerDown, {passive: false});
-      canvas.addEventListener('touchmove', onPointerMove, {passive: false});
-      canvas.addEventListener('touchend', onPointerUp, {passive: false});
-    }
+    // Cegah klik kanan
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     return {
-      isEmpty: function () { return !hasStrokes; },
+      isEmpty: function () { return !hasDrawn; },
       clear: function () {
-        hasStrokes = false;
-        drawing = false;
-        activePointerId = null;
-        prevPos = null;
-        ctx.fillStyle = o.bgColor;
+        hasDrawn = false;
+        isDrawing = false;
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = o.strokeColor;
-        ctx.lineWidth = o.strokeWidth;
+        ctx.strokeStyle = '#0f172a';
       },
-      toDataURL: function (type, quality) {
-        // Paksa PNG agar hasil transparan diganti solid putih
-        return canvas.toDataURL(type || 'image/png', quality);
+      toDataURL: function () {
+        return canvas.toDataURL('image/png');
       },
-      getCanvas: function () { return canvas; },
-      destroy: function () {
-        if (window.PointerEvent) {
-          canvas.removeEventListener('pointerdown', onPointerDown);
-          canvas.removeEventListener('pointermove', onPointerMove);
-          canvas.removeEventListener('pointerup', onPointerUp);
-          canvas.removeEventListener('pointercancel', onPointerCancel);
-        } else {
-          canvas.removeEventListener('mousedown', onPointerDown);
-          window.removeEventListener('mousemove', onPointerMove);
-          window.removeEventListener('mouseup', onPointerUp);
-          canvas.removeEventListener('touchstart', onPointerDown);
-          canvas.removeEventListener('touchmove', onPointerMove);
-          canvas.removeEventListener('touchend', onPointerUp);
-        }
-        container.innerHTML = '';
-      }
+      getCanvas: function () { return canvas; }
     };
   }
 

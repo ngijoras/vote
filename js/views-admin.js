@@ -103,7 +103,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  SETTINGS (Dengan TTD Digital)
+   *  SETTINGS (Dengan TTD Digital - Perbaikan Total)
    * ============================================================ */
   async function settings() {
     clearAllPolls();
@@ -151,7 +151,7 @@ window.ViewsAdmin = (function () {
           <input type="text" class="input" name="invitation_signer" value="${esc(settingsMap.invitation_signer || 'Ketua Panitia')}">
         </label>
 
-        <!-- TAMBAHAN: TTD DIGITAL -->
+        <!-- AREA TTD -->
         <label class="field">
           <span>Tanda Tangan Ketua Panitia (Untuk Undangan)</span>
           <div id="sigPadSettings"></div>
@@ -164,57 +164,60 @@ window.ViewsAdmin = (function () {
       </form>
     `;
 
-    // Setup TTD Pad
-    const sigHost = document.getElementById('sigPadSettings');
-    const sigPad = Sign.mount(sigHost);
-    
-    // Load TTD lama jika ada
-    if (settingsMap.invitation_signature && settingsMap.invitation_signature.length > 100) {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = sigPad.getCanvas();
-        const ctx = canvas.getContext('2d');
-        
-        // KUNCI: Paksa background putih sebelum menempel gambar
-        ctx.fillStyle = '#ffffff'; 
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      };
-      img.src = settingsMap.invitation_signature;
-    }
-
-    document.getElementById('btnClearSig').onclick = () => sigPad.clear();
-
-    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('btnSaveSettings');
-      btn.disabled = true; btn.textContent = 'Menyimpan...';
-
-      const fd = new FormData(e.target);
-      const dateVal = fd.get('election_date');
-      let isoDate = '';
-      if (dateVal) isoDate = new Date(dateVal).toISOString();
-
-      let sigData = settingsMap.invitation_signature || '';
-      // Jika ada coretan baru, timpa dengan yang baru
-      if (!sigPad.isEmpty()) {
-        sigData = sigPad.toDataURL('image/png');
+    // Beri jeda 100ms agar DOM selesai render sebelum inisialisasi canvas
+    setTimeout(() => {
+      const sigHost = document.getElementById('sigPadSettings');
+      const sigPad = Sign.mount(sigHost);
+      
+      // Load TTD lama
+      if (settingsMap.invitation_signature && settingsMap.invitation_signature.length > 100) {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = sigPad.getCanvas();
+          const ctx = canvas.getContext('2d');
+          
+          // Paksa background putih solid
+          ctx.fillStyle = '#ffffff'; 
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = settingsMap.invitation_signature;
       }
 
-      await API.post('settings.save', { key: 'election_date', value: isoDate });
-      await API.post('settings.save', { key: 'event_name', value: fd.get('event_name') });
-      await API.post('settings.save', { key: 'invitation_signer', value: fd.get('invitation_signer') });
-      await API.post('settings.save', { key: 'invitation_signature', value: sigData });
+      document.getElementById('btnClearSig').onclick = () => sigPad.clear();
 
-      Cache.clearAll();
-      UI.toast('Pengaturan berhasil disimpan', 'success');
-      btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan';
-    });
+      document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btnSaveSettings');
+        btn.disabled = true; btn.textContent = 'Menyimpan...';
+
+        const fd = new FormData(e.target);
+        const dateVal = fd.get('election_date');
+        let isoDate = '';
+        if (dateVal) isoDate = new Date(dateVal).toISOString();
+
+        let sigData = settingsMap.invitation_signature || '';
+        
+        // Cek apakah kanvas ada isinya (coretan baru)
+        if (!sigPad.isEmpty()) {
+          sigData = sigPad.toDataURL('image/png');
+        }
+
+        await API.post('settings.save', { key: 'election_date', value: isoDate });
+        await API.post('settings.save', { key: 'event_name', value: fd.get('event_name') });
+        await API.post('settings.save', { key: 'invitation_signer', value: fd.get('invitation_signer') });
+        await API.post('settings.save', { key: 'invitation_signature', value: sigData });
+
+        Cache.clearAll();
+        UI.toast('Pengaturan berhasil disimpan', 'success');
+        btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan';
+      });
+    }, 100);
   }
 
   /* ============================================================
-   *  VOTERS (Filter RT, Search, Sorting)
+   *  VOTERS
    * ============================================================ */
   let allVoters = [];
   let voterSearchQ = '';
@@ -630,7 +633,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  BOOTHS (Dengan Indikator Online/Offline)
+   *  BOOTHS
    * ============================================================ */
   let allBooths = [];
 
@@ -889,11 +892,11 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  INVITATIONS (Format Surat Formal + Pagination + PDF)
+   *  INVITATIONS
    * ============================================================ */
   let invLayoutMode = '4';
   let invPage = 1;
-  const invPerPage = 40; 
+  const invPerPage = 40;
 
   async function invitations() {
     clearAllPolls();
@@ -933,7 +936,6 @@ window.ViewsAdmin = (function () {
     const startIndex = (invPage - 1) * invPerPage;
     const paginatedVoters = allVoters.slice(startIndex, startIndex + invPerPage);
 
-    // Buat opsi pagination
     let pageOptions = '';
     for (let i = 1; i <= totalPages; i++) {
       const start = (i - 1) * invPerPage + 1;
@@ -948,8 +950,6 @@ window.ViewsAdmin = (function () {
           <p class="hint">Menampilkan data ${startIndex + 1} - ${Math.min(startIndex + invPerPage, allVoters.length)}</p>
         </div>
         <div class="row" style="margin:0; align-items:center;">
-          
-          <!-- PAGINATION -->
           <select class="input" style="width: 130px; height: 38px; padding: 0 10px;" onchange="ViewsAdmin.changeInvPage(this.value)">
             ${pageOptions}
           </select>
