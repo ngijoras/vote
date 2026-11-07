@@ -1,35 +1,63 @@
 /* ============================================================
-   E-VOTE • router.js
+   E-VOTE • router.js (FULL FIX)
    Hash-based SPA Router + Auth Guard + Role Guard + Cleanup.
+   - Gunakan SafeStorage (fallback memory mode)
+   - Verify token server-side, tidak loop redirect
+   - Cleanup anti memory-leak (poll, camera, voice, QR, clock)
+   - Guard error per-route agar 1 view crash tidak matikan app
+   - Navigate idempotent (tidak double-render saat hashchange dobel)
    ============================================================ */
 (function () {
   'use strict';
 
   /* ============================================================
+   *  0. STORAGE RESOLVER
+   * ============================================================ */
+  const Store = window.SafeStorage || window.localStorage;
+
+  function safeGet(k) {
+    try { return Store.getItem(k); } catch (_) { return null; }
+  }
+  function safeDel(k) {
+    try { Store.removeItem(k); } catch (_) {}
+  }
+
+  /* ============================================================
    *  1. AUTH GUARD
    * ============================================================ */
-  const token   = localStorage.getItem('evote_token');
-  const userRaw = localStorage.getItem('evote_user');
+  const token   = safeGet('evote_token');
+  const userRaw = safeGet('evote_user');
 
   let u = null;
-  try { u = JSON.parse(userRaw); } catch (_) { u = null; }
+  try { u = userRaw ? JSON.parse(userRaw) : null; } catch (_) { u = null; }
 
-  // Jika tidak ada sesi, tendang ke login.html
   if (!token || !u || !u.role) {
     location.replace('login.html');
     return;
   }
 
-  /* ---------- Verify token server-side (silent) ---------- */
+  /* ---------- Verify token server-side (silent, satu kali) ---------- */
+  let verified = false;
   (function verifyToken() {
-    if (!window.API || typeof API.post !== 'function') return;
-    API.post('me').then((r) => {
-      if (!r || !r.success) {
-        localStorage.removeItem('evote_token');
-        localStorage.removeItem('evote_user');
-        location.replace('login.html');
-      }
-    }).catch(() => { /* offline / network error → biarkan */ });
+    if (!window.API || typeof API.post !== 'function') {
+      verified = true; // fallback: anggap OK bila API belum siap
+      return;
+    }
+    API.post('me')
+      .then((r) => {
+        verified = true;
+        if (!r || !r.success) {
+          safeDel('evote_token');
+          safeDel('evote_user');
+          safeDel('evote_exp');
+          if (window.Cache && Cache.clearAll) Cache.clearAll();
+          location.replace('login.html');
+        }
+      })
+      .catch(() => {
+        // network error → biarkan sesi lokal tetap valid
+        verified = true;
+      });
   })();
 
   /* ============================================================
@@ -92,10 +120,12 @@
    *  3. CLEANUP (dipanggil sebelum setiap route switch)
    * ============================================================ */
   function cleanup() {
-    try { if (ViewsAdmin   && ViewsAdmin._clearAllPolls)   ViewsAdmin._clearAllPolls();   } catch (_) {}
-    try { if (ViewsPetugas && ViewsPetugas._clearAllPolls) ViewsPetugas._clearAllPolls(); } catch (_) {}
+    try { if (window.ViewsAdmin   && ViewsAdmin._clearAllPolls)   ViewsAdmin._clearAllPolls();   } catch (_) {}
+    try { if (window.ViewsPetugas && ViewsPetugas._clearAllPolls) ViewsPetugas._clearAllPolls(); } catch (_) {}
+    try { if (window.ViewsBilik   && ViewsBilik._clearAllPolls)   ViewsBilik._clearAllPolls();   } catch (_) {}
     try { if (window.QR    && QR.stop)    QR.stop();    } catch (_) {}
     try { if (window.Voice && Voice.stop) Voice.stop(); } catch (_) {}
+    try { if (window.UI    && UI.closeModal) UI.closeModal(); } catch (_) {}
   }
 
   /* ============================================================
@@ -165,28 +195,37 @@
   }
 
   /* ============================================================
-   *  6. CLOCK
+   *  6. CLOCK (auto-cleanup)
    * ============================================================ */
   let clockTimer = null;
 
   function startClock() {
     const el = document.getElementById('clock');
     if (!el) return;
-    if (clockTimer) clearInterval(clockTimer);
+    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
 
     const tick = () => {
-      const d = new Date();
-      const day  = d.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short' });
-      const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      el.textContent = `${day} • ${time}`;
+      try {
+        const d = new Date();
+        const day  = d.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short' });
+        const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        el.textContent = `${day} • ${time}`;
+      } catch (_) {}
     };
     tick();
     clockTimer = setInterval(tick, 1000);
   }
 
+  function stopClock() {
+    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+  }
+
   /* ============================================================
-   *  7. NAVIGATE
+   *  7. NAVIGATE (idempotent)
    * ============================================================ */
+  let navigating = false;
+  let pendingPath = null;
+
   function parsePath() {
     const raw = (location.hash || '').replace(/^#\/?/, '').trim();
     return raw;
@@ -197,63 +236,77 @@
   }
 
   async function navigate() {
-    const path  = parsePath();
-    const view  = document.getElementById('view');
-    const title = document.getElementById('pageTitle');
-
-    if (!path) {
-      location.replace('#/' + defaultPath());
-      return;
-    }
-
-    const route = ROUTES[path];
-
-    if (!route) {
-      if (title) title.textContent = 'Tidak Ditemukan';
-      if (view) {
-        view.innerHTML = `
-          <div class="card text-center" style="padding:40px">
-            <h1 style="font-size:3rem;margin:0">404</h1>
-            <h3 style="margin-top:8px">Halaman Tidak Ditemukan</h3>
-            <p class="hint">Route "${UI.escapeHtml(path)}" tidak tersedia.</p>
-            <a href="#/${defaultPath()}" class="btn-primary" style="margin-top:16px">
-              Kembali ke Dashboard
-            </a>
-          </div>`;
-      }
-      updateActive('');
-      return;
-    }
-
-    if (route.roles && route.roles.indexOf(u.role) === -1) {
-      UI.toast('Anda tidak memiliki akses ke halaman ini', 'error');
-      location.replace('#/' + defaultPath());
-      return;
-    }
-
-    cleanup();
-    closeSidebar();
-
-    if (title) title.textContent = route.title;
-    document.title = `${route.title} • E-Vote`;
-    updateActive(path);
-
-    try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }
-    catch (_) { window.scrollTo(0, 0); }
+    // Idempotent: jika sedang navigasi, simpan request terakhir
+    if (navigating) { pendingPath = parsePath(); return; }
+    navigating = true;
 
     try {
-      await route.fn();
-    } catch (err) {
-      console.error('[router] view error:', err);
-      if (view) {
-        view.innerHTML = `
-          <div class="card">
-            <h3 style="color:var(--err)">Terjadi Kesalahan</h3>
-            <p class="hint">${UI.escapeHtml(err && err.message ? err.message : String(err))}</p>
-            <button class="btn-primary" type="button" onclick="location.reload()">
-              Muat Ulang Halaman
-            </button>
-          </div>`;
+      const path  = parsePath();
+      const view  = document.getElementById('view');
+      const title = document.getElementById('pageTitle');
+
+      if (!path) {
+        location.replace('#/' + defaultPath());
+        return;
+      }
+
+      const route = ROUTES[path];
+
+      if (!route) {
+        if (title) title.textContent = 'Tidak Ditemukan';
+        if (view) {
+          view.innerHTML = `
+            <div class="card text-center" style="padding:40px">
+              <h1 style="font-size:3rem;margin:0">404</h1>
+              <h3 style="margin-top:8px">Halaman Tidak Ditemukan</h3>
+              <p class="hint">Route "${UI.escapeHtml(path)}" tidak tersedia.</p>
+              <a href="#/${defaultPath()}" class="btn-primary" style="margin-top:16px">
+                Kembali ke Dashboard
+              </a>
+            </div>`;
+        }
+        updateActive('');
+        return;
+      }
+
+      if (route.roles && route.roles.indexOf(u.role) === -1) {
+        UI.toast('Anda tidak memiliki akses ke halaman ini', 'error');
+        location.replace('#/' + defaultPath());
+        return;
+      }
+
+      // Cleanup sebelum pindah
+      cleanup();
+      closeSidebar();
+
+      if (title) title.textContent = route.title;
+      document.title = `${route.title} • E-Vote`;
+      updateActive(path);
+
+      try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }
+      catch (_) { window.scrollTo(0, 0); }
+
+      try {
+        await route.fn();
+      } catch (err) {
+        console.error('[router] view error:', err);
+        if (view) {
+          view.innerHTML = `
+            <div class="card">
+              <h3 style="color:var(--err)">Terjadi Kesalahan</h3>
+              <p class="hint">${UI.escapeHtml(err && err.message ? err.message : String(err))}</p>
+              <button class="btn-primary" type="button" onclick="location.reload()">
+                Muat Ulang Halaman
+              </button>
+            </div>`;
+        }
+      }
+    } finally {
+      navigating = false;
+      // Jika ada request navigasi baru saat kita masih proses, jalankan sekali lagi
+      if (pendingPath !== null) {
+        pendingPath = null;
+        setTimeout(navigate, 0);
       }
     }
   }
@@ -274,11 +327,15 @@
 
     /* Menu toggle (mobile) */
     const btnMenu = document.getElementById('btnMenu');
-    if (btnMenu) btnMenu.addEventListener('click', toggleSidebar);
+    if (btnMenu && !btnMenu.dataset.bound) {
+      btnMenu.dataset.bound = '1';
+      btnMenu.addEventListener('click', toggleSidebar);
+    }
 
     /* Auto-close sidebar */
     const nav = document.getElementById('nav');
-    if (nav) {
+    if (nav && !nav.dataset.bound) {
+      nav.dataset.bound = '1';
       nav.addEventListener('click', (e) => {
         if (e.target.closest('.nav-item')) closeSidebar();
       });
@@ -288,43 +345,56 @@
     document.querySelectorAll('[data-logout]').forEach((btn) => {
       if (btn.dataset.bound === '1') return;
       btn.dataset.bound = '1';
-      
+
       btn.addEventListener('click', async () => {
+        let ok = true;
         if (window.UI && UI.confirm) {
-          const ok = await UI.confirm('Keluar dari aplikasi?', { okLabel: 'Ya, Keluar' });
-          if (ok) API.logout();
+          ok = await UI.confirm('Keluar dari aplikasi?', { okLabel: 'Ya, Keluar' });
         } else {
-          if (confirm('Keluar dari aplikasi?')) API.logout();
+          ok = window.confirm('Keluar dari aplikasi?');
         }
+        if (!ok) return;
+
+        cleanup();
+        stopClock();
+        if (window.API && API.logout) API.logout();
       });
     });
 
     /* TOMBOL GLOBAL REFRESH */
     const btnRefresh = document.getElementById('btnGlobalRefresh');
-    if (btnRefresh) {
+    if (btnRefresh && !btnRefresh.dataset.bound) {
+      btnRefresh.dataset.bound = '1';
       btnRefresh.addEventListener('click', async () => {
         btnRefresh.classList.add('loading');
         btnRefresh.disabled = true;
-        
-        // Hapus cache dan paksa tarik data baru
-        if (window.Cache) Cache.clearAll();
-        await navigate();
-        
-        btnRefresh.classList.remove('loading');
-        btnRefresh.disabled = false;
-        if (window.UI) UI.toast('Data berhasil diperbarui', 'success');
+        try {
+          if (window.Cache) Cache.clearAll();
+          await navigate();
+          if (window.UI) UI.toast('Data berhasil diperbarui', 'success');
+        } catch (err) {
+          if (window.UI) UI.toast('Gagal refresh: ' + err.message, 'error');
+        } finally {
+          btnRefresh.classList.remove('loading');
+          btnRefresh.disabled = false;
+        }
       });
     }
 
-    /* PRELOAD DATA DI BACKGROUND */
-    if (window.Cache && Cache.preloadAll) {
+    /* PRELOAD DATA DI BACKGROUND (hanya sekali) */
+    if (window.Cache && Cache.preloadAll && !window.__evotePreloaded) {
+      window.__evotePreloaded = true;
       Cache.preloadAll();
     }
 
     /* Clock & Routing */
     startClock();
     window.addEventListener('hashchange', navigate);
-    window.addEventListener('beforeunload', () => { cleanup(); });
+
+    window.addEventListener('beforeunload', () => {
+      cleanup();
+      stopClock();
+    });
 
     navigate();
   }

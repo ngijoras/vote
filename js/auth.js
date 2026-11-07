@@ -1,24 +1,21 @@
 /* ============================================================
-   E-VOTE • auth.js
+   E-VOTE • auth.js (FULL FIX)
    Layer autentikasi di atas js/api.js.
 
    Fitur:
-   - Session get/set/clear (kompatibel dengan key localStorage api.js:
-     'evote_token' & 'evote_user')
-   - login / logout wrapper (delegate ke API)
+   - Session get/set/clear — sinkron dengan SafeStorage
+   - Login/logout wrapper (delegate ke API)
    - Role helpers: hasRole, isAdmin, isPetugas, isBilik
    - Page guard: requireLogin, requireRole
-   - Verify async ke server (endpoint 'me') — untuk refresh user & cek token
-   - Heartbeat optional — auto-verify periodik; matikan kalau expired
+   - Verify async ke server (endpoint 'me')
+   - Heartbeat optional — auto-verify periodik
    - Event subscription: 'login', 'logout', 'change', 'expired'
-   - Cross-tab sync: login/logout di tab lain otomatis terdeteksi
+   - Cross-tab sync (via storage event)
    - Remember username helpers
-   - bindLogoutButtons opsional (tidak auto-bind — router sudah handle)
+   - bindLogoutButtons (opsional)
 
-   Tidak menimpa window.API. Router & views yang sudah ada tetap
-   berfungsi tanpa perubahan apa pun.
-
-   ⚠️ WAJIB dimuat SETELAH js/api.js, SEBELUM js/router.js.
+   ⚠️ WAJIB dimuat SETELAH js/storage.js dan js/api.js,
+   SEBELUM js/router.js.
    ============================================================ */
 window.Auth = (function () {
   'use strict';
@@ -26,30 +23,23 @@ window.Auth = (function () {
   /* ---------- Storage keys (sinkron dengan api.js) ---------- */
   const LS_TOKEN    = 'evote_token';
   const LS_USER     = 'evote_user';
-  const LS_EXP      = 'evote_exp';               // optional — diisi kalau ada estimasi
+  const LS_EXP      = 'evote_exp';
   const LS_REMEMBER = 'evote_remember_username';
 
-  const DEFAULT_LOGIN_PAGE = 'index.html';
+  const DEFAULT_LOGIN_PAGE = 'login.html';
   const DEFAULT_APP_PAGE   = 'app.html';
 
-  /* ---------- Memory fallback (privacy mode / localStorage disabled) ---------- */
-  let memory = { token: '', user: null, exp: 0 };
-  let memoryOnly = false;
+  /* ---------- Storage resolver (SafeStorage → localStorage) ---------- */
+  const Store = (window.SafeStorage || window.localStorage);
 
   function lsGet(key) {
-    if (memoryOnly) return null;
-    try { return localStorage.getItem(key); }
-    catch (_) { memoryOnly = true; return null; }
+    try { return Store.getItem(key); } catch (_) { return null; }
   }
   function lsSet(key, val) {
-    if (memoryOnly) return;
-    try { localStorage.setItem(key, val); }
-    catch (_) { memoryOnly = true; }
+    try { Store.setItem(key, val); } catch (_) {}
   }
   function lsDel(key) {
-    if (memoryOnly) return;
-    try { localStorage.removeItem(key); }
-    catch (_) { memoryOnly = true; }
+    try { Store.removeItem(key); } catch (_) {}
   }
 
   /* ---------- API resolver (lazy) ---------- */
@@ -64,12 +54,10 @@ window.Auth = (function () {
    *  SESSION ACCESSORS
    * ============================================================ */
   function token() {
-    if (memoryOnly) return memory.token || '';
     return lsGet(LS_TOKEN) || '';
   }
 
   function user() {
-    if (memoryOnly) return memory.user;
     try {
       const raw = lsGet(LS_USER);
       return raw ? JSON.parse(raw) : null;
@@ -77,23 +65,17 @@ window.Auth = (function () {
   }
 
   function exp() {
-    if (memoryOnly) return Number(memory.exp) || 0;
     const v = Number(lsGet(LS_EXP));
-    return isFinite(v) ? v : 0;
+    return isFinite(v) && v > 0 ? v : 0;
   }
 
   function setSession(tok, u, expMs) {
     if (!tok || !u) return false;
-    if (memoryOnly) {
-      memory.token = tok;
-      memory.user = u;
-      memory.exp = Number(expMs) || 0;
-    } else {
-      lsSet(LS_TOKEN, tok);
-      lsSet(LS_USER, JSON.stringify(u));
-      if (expMs) lsSet(LS_EXP, String(Number(expMs)));
-      else lsDel(LS_EXP);
-    }
+    lsSet(LS_TOKEN, tok);
+    lsSet(LS_USER, JSON.stringify(u));
+    if (expMs) lsSet(LS_EXP, String(Number(expMs)));
+    else lsDel(LS_EXP);
+
     emit('change', sessionInfo());
     emit('login', u);
     return true;
@@ -101,13 +83,9 @@ window.Auth = (function () {
 
   function clearSession(silent) {
     const had = !!token();
-    if (memoryOnly) {
-      memory = { token: '', user: null, exp: 0 };
-    } else {
-      lsDel(LS_TOKEN);
-      lsDel(LS_USER);
-      lsDel(LS_EXP);
-    }
+    lsDel(LS_TOKEN);
+    lsDel(LS_USER);
+    lsDel(LS_EXP);
     if (!silent && had) {
       emit('change', null);
       emit('logout', null);
@@ -210,11 +188,6 @@ window.Auth = (function () {
     const res = await A.login(username, password);
 
     if (res && res.success && res.token && res.user) {
-      // API.login sudah menulis ke localStorage; sinkronkan memory cache
-      if (memoryOnly) {
-        memory.token = res.token;
-        memory.user  = res.user;
-      }
       if (typeof opts.rememberUsername === 'boolean') {
         saveRememberedUsername(opts.rememberUsername ? username : '');
       }
@@ -237,27 +210,32 @@ window.Auth = (function () {
 
   /**
    * Verifikasi token ke server. Kalau sukses → refresh user object.
-   * Kalau gagal karena server bilang tidak valid → clearSession.
-   * Kalau gagal karena network error → JANGAN clear (biar user coba lagi).
+   * - Network error → jangan clear session (biar user coba lagi).
+   * - Server bilang tidak valid → clearSession + emit expired.
    */
+  let verifying = false;
   async function verify() {
     if (!isLoggedIn()) return false;
-    const A = api();
+    if (verifying) return false; // anti concurrent verify
+    verifying = true;
 
+    const A = api();
     let res;
-    try { res = await A.post('me'); }
-    catch (_) { return false; } // network error — jangan clear session
+    try {
+      res = await A.post('me');
+    } catch (_) {
+      verifying = false;
+      return false; // network error
+    }
+    verifying = false;
 
     if (res && res.success && res.user) {
-      try {
-        if (!memoryOnly) lsSet(LS_USER, JSON.stringify(res.user));
-        else memory.user = res.user;
-      } catch (_) {}
+      try { lsSet(LS_USER, JSON.stringify(res.user)); } catch (_) {}
       emit('change', sessionInfo());
       return true;
     }
 
-    // Server bilang tidak valid
+    // Server bilang token tidak valid
     clearSession();
     emit('expired', null);
     return false;
@@ -346,7 +324,6 @@ window.Auth = (function () {
 
   /* ============================================================
    *  LOGOUT BUTTONS (opsional — router sudah handle)
-   *  Panggil manual kalau pakai halaman tanpa router.js.
    * ============================================================ */
   function bindLogoutButtons(root) {
     const scope = root || document;
