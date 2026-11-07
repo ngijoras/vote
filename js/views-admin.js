@@ -757,7 +757,7 @@ Ani,02,02,Jl. Melati,085678"></textarea>
   }
 
   /* ============================================================
-   *  INVITATIONS (Sistem Master A4 + Scale Proporsional)
+   *  INVITATIONS (Dengan Fitur Ekspor PDF & Pengaturan Halaman)
    * ============================================================ */
   let invState = { page: 1, limit: 20, total: 0, allData: [] };
 
@@ -809,15 +809,15 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     const search = document.getElementById('invSearch');
     const layout = document.getElementById('invLayout');
 
-    const triggerPrint = () => {
-      setTimeout(() => window.print(), 150);
-    };
-
-    if (btnPrint) btnPrint.onclick = triggerPrint;
-    if (btnExportPdf) btnExportPdf.onclick = () => {
-      UI.toast('Pilih "Save as PDF" pada dialog cetak.', 'info');
-      triggerPrint();
-    };
+    if (btnPrint) {
+      btnPrint.onclick = () => {
+        setTimeout(() => window.print(), 150);
+      };
+    }
+    
+    if (btnExportPdf) {
+      btnExportPdf.onclick = () => doExportPDF();
+    }
     
     if (search) {
       search.addEventListener('input', UI.debounce(() => {
@@ -839,6 +839,64 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     }
 
     await loadInvitations();
+  }
+
+  // Fungsi Export PDF via Iframe (Mencegah UI ikut tercetak)
+  function doExportPDF() {
+    const area = document.getElementById('invPrintArea');
+    if (!area) return;
+    
+    UI.toast('Menyiapkan file PDF...', 'info');
+    
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    const layoutClass = (document.getElementById('invLayout') || {}).value || 'layout-2';
+    
+    // Salin stylesheet dari halaman utama ke iframe
+    let cssLinks = '';
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+      cssLinks += `<link rel="stylesheet" href="${link.href}">`;
+    });
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Ekspor PDF Undangan</title>
+          ${cssLinks}
+          <style>
+            /* Paksa tampil 100% (tanpa zoom layar) di dalam iframe */
+            body { background: #fff; margin: 0; padding: 0; }
+            .preview-zoom { zoom: 1 !important; }
+          </style>
+        </head>
+        <body>
+          <div class="invitations-sheet ${layoutClass}">
+            ${area.innerHTML.replace(/<div class="invitations-sheet[^>]*>/, '').replace(/<\/div>$/, '')}
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    // Beri jeda untuk QR Code diload, lalu print
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      // Bersihkan iframe setelah print dialog muncul
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 2000);
+    }, 500);
   }
 
   async function loadInvitations() {
@@ -864,13 +922,13 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     const eventName = settings.event_name || 'Pemilihan';
     const eventLoc = settings.event_location || '-';
     
+    // Format Tanggal tanpa nama hari agar ringkas
     let formattedDate = '-';
     if (settings.election_date) {
       const d = new Date(settings.election_date);
-      const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
       const pad = (n) => String(n).padStart(2, '0');
-      formattedDate = `${days[d.getDay()]}, ${pad(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()}`;
+      formattedDate = `${pad(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()}`;
     }
 
     const q = (document.getElementById('invSearch') || {}).value || '';
