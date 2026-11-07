@@ -1,42 +1,42 @@
 /* ============================================================
-   E-VOTE • sign.js (Versi Anti-Gagal PC)
+   E-VOTE • sign.js (Versi Brutal - Dijamin Jalan di PC)
    ============================================================ */
 window.Sign = (function () {
   'use strict';
 
   function mount(container, opts) {
     if (!container) throw new Error('Sign.mount: container element required');
-
     container.innerHTML = '';
-    
-    // Set ukuran canvas yang solid
+
     const canvas = document.createElement('canvas');
-    canvas.width = 600;
-    canvas.height = 200;
+    // Resolusi kecil agar ringan dan hemat memori
+    canvas.width = 400;
+    canvas.height = 150;
     
-    // CSS Mencegah seleksi teks & gesture browser
     canvas.style.cssText = `
       width: 100%;
       height: auto;
-      aspect-ratio: 600 / 200;
+      aspect-ratio: 400 / 150;
       background: #ffffff;
+      border: 1px dashed #cbd5e1;
       border-radius: 8px;
       cursor: crosshair;
       display: block;
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
+      -ms-user-select: none;
     `;
     
     container.appendChild(canvas);
     const ctx = canvas.getContext('2d');
     
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = '#0f172a';
     
-    // Selalu isi background putih
+    // Paksa background putih solid
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -45,16 +45,14 @@ window.Sign = (function () {
     let lastY = 0;
     let hasDrawn = false;
 
-    // Fungsi menghitung koordinat presisi
     function getCoordinates(e) {
       const rect = canvas.getBoundingClientRect();
-      
-      // Validasi agar tidak error jika canvas belum tampil
       if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
 
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
       
+      // Support Touch and Mouse
       let clientX = e.clientX;
       let clientY = e.clientY;
 
@@ -71,23 +69,23 @@ window.Sign = (function () {
 
     function startDrawing(e) {
       if (e.button === 2) return; // Abaikan klik kanan
-      e.preventDefault(); // Cegah drag & drop teks browser
+      e.preventDefault(); // Blokir drag text browser
       
       isDrawing = true;
       hasDrawn = true;
-      
       const pos = getCoordinates(e);
       lastX = pos.x;
       lastY = pos.y;
       
-      // Gambar titik awal
+      // Titik awal
       ctx.beginPath();
       ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
       ctx.fillStyle = '#0f172a';
       ctx.fill();
     }
 
-    // Fungsi Inti: Dilacak dari window agar tidak terputus saat mouse keluar
+    // Fungsi ini didengarkan di WINDOW, bukan Canvas. 
+    // Jadi sejauh apapun mouse bergerak, garis akan terus mengikuti.
     function draw(e) {
       if (!isDrawing) return;
       e.preventDefault();
@@ -108,18 +106,18 @@ window.Sign = (function () {
       isDrawing = false;
     }
 
-    // Attach Events (Mouse & Touch)
+    // --- EVENT LISTENERS ---
+    // Mouse
     canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('touchstart', startDrawing, {passive: false});
-    
-    // Listener global di Window (Kunci utama tidak putus saat keluar kotak)
     window.addEventListener('mousemove', draw);
-    window.addEventListener('touchmove', draw, {passive: false});
-    
     window.addEventListener('mouseup', stopDrawing);
+    
+    // Touch (HP)
+    canvas.addEventListener('touchstart', startDrawing, {passive: false});
+    window.addEventListener('touchmove', draw, {passive: false});
     window.addEventListener('touchend', stopDrawing);
     window.addEventListener('touchcancel', stopDrawing);
-
+    
     // Cegah klik kanan
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -133,7 +131,9 @@ window.Sign = (function () {
         ctx.strokeStyle = '#0f172a';
       },
       toDataURL: function () {
-        return canvas.toDataURL('image/png');
+        // KUNCI: Gunakan JPEG kualitas 0.4 agar ukuran Base64 sangat kecil (< 5KB)
+        // Ini mencegah Google Sheets memotong data (limit 50.000 karakter).
+        return canvas.toDataURL('image/jpeg', 0.4);
       },
       getCanvas: function () { return canvas; }
     };

@@ -21,7 +21,6 @@ window.ViewsAdmin = (function () {
     return (prefix || 'V') + Date.now().toString(36).toUpperCase().slice(-6) + Math.random().toString(36).slice(2, 4).toUpperCase();
   }
 
-  /* ---------- Polling ---------- */
   const polls = {};
   function setPoll(id, ms, fn) {
     clearPoll(id);
@@ -33,7 +32,6 @@ window.ViewsAdmin = (function () {
   function clearPoll(id) { if (polls[id]) { clearInterval(polls[id]); delete polls[id]; } }
   function clearAllPolls() { Object.keys(polls).forEach(clearPoll); }
 
-  /* ---------- Image resize ---------- */
   function resizeImageFile(file, maxSize = 300, quality = 0.75) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -58,9 +56,6 @@ window.ViewsAdmin = (function () {
     });
   }
 
-  /* ============================================================
-   *  DASHBOARD
-   * ============================================================ */
   async function dashboard() {
     clearAllPolls();
     const el = view();
@@ -102,9 +97,6 @@ window.ViewsAdmin = (function () {
     }
   }
 
-  /* ============================================================
-   *  SETTINGS (Menggunakan URL Drive)
-   * ============================================================ */
   async function settings() {
     clearAllPolls();
     const el = view();
@@ -151,13 +143,15 @@ window.ViewsAdmin = (function () {
           <input type="text" class="input" name="invitation_signer" value="${esc(settingsMap.invitation_signer || 'Ketua Panitia')}">
         </label>
 
-        <!-- TAMBAHAN: TTD DIGITAL (MENGGUNAKAN URL DRIVE) -->
         <label class="field">
           <span>Tanda Tangan Ketua Panitia (Untuk Undangan)</span>
+          
           <div id="sigPreviewArea" style="display: none; margin-bottom: 8px;">
             <img id="sigPreviewImg" src="" style="max-height: 120px; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 4px;">
           </div>
+          
           <div id="sigPadSettings"></div>
+          
           <div class="row" style="margin-top:8px">
             <button type="button" class="btn-ghost btn-sm" id="btnClearSig">Hapus / Ganti TTD</button>
           </div>
@@ -167,7 +161,6 @@ window.ViewsAdmin = (function () {
       </form>
     `;
 
-    // Beri jeda 100ms agar DOM selesai render
     setTimeout(() => {
       const sigHost = document.getElementById('sigPadSettings');
       const sigPreviewArea = document.getElementById('sigPreviewArea');
@@ -206,20 +199,20 @@ window.ViewsAdmin = (function () {
         if (dateVal) isoDate = new Date(dateVal).toISOString();
 
         let sigData = currentSigUrl;
-        // Jika admin menggambar TTD baru, kirim Base64 ke backend (nanti backend ubah ke URL)
+        
+        // Jika admin menggambar TTD baru, ambil dari canvas (JPEG kompresi kecil)
         if (!sigPad.isEmpty()) {
-          sigData = sigPad.toDataURL('image/png');
+          sigData = sigPad.toDataURL(); 
         }
 
         await API.post('settings.save', { key: 'election_date', value: isoDate });
         await API.post('settings.save', { key: 'event_name', value: fd.get('event_name') });
         await API.post('settings.save', { key: 'invitation_signer', value: fd.get('invitation_signer') });
         
-        // Backend akan mendeteksi ini sebagai Base64 dan menguploadnya ke Drive
         const res = await API.post('settings.save', { key: 'invitation_signature', value: sigData });
         
-        if (res.success && res.data.value.startsWith('http')) {
-          currentSigUrl = res.data.value; // Simpan URL baru
+        if (res.success && res.data && res.data.value) {
+          currentSigUrl = res.data.value;
         }
 
         Cache.clearAll();
@@ -230,9 +223,6 @@ window.ViewsAdmin = (function () {
     }, 100);
   }
 
-  /* ============================================================
-   *  VOTERS
-   * ============================================================ */
   let allVoters = [];
   let voterSearchQ = '';
   let voterSortBy = 'name_asc';
@@ -262,7 +252,6 @@ window.ViewsAdmin = (function () {
     if (!area) return;
     
     const q = voterSearchQ.toLowerCase();
-    
     const uniqueRts = [...new Set(allVoters.map(v => v.rt).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
     
     let filtered = allVoters.filter(v => {
@@ -484,9 +473,6 @@ window.ViewsAdmin = (function () {
     });
   }
 
-  /* ============================================================
-   *  CANDIDATES
-   * ============================================================ */
   let allCandidates = [];
 
   async function candidates() {
@@ -646,9 +632,6 @@ window.ViewsAdmin = (function () {
     await loadCandidates();
   }
 
-  /* ============================================================
-   *  BOOTHS
-   * ============================================================ */
   let allBooths = [];
 
   async function booths() {
@@ -750,9 +733,6 @@ window.ViewsAdmin = (function () {
     await loadBooths();
   }
 
-  /* ============================================================
-   *  USERS
-   * ============================================================ */
   let allUsers = [];
 
   async function users() {
@@ -905,9 +885,6 @@ window.ViewsAdmin = (function () {
     await loadUsers();
   }
 
-  /* ============================================================
-   *  INVITATIONS
-   * ============================================================ */
   let invLayoutMode = '4';
   let invPage = 1;
   const invPerPage = 40;
@@ -935,7 +912,7 @@ window.ViewsAdmin = (function () {
       const map = {};
       st.data.forEach(s => map[s.key] = s.value);
       signerName = map.invitation_signer || signerName;
-      signerSignature = map.invitation_signature || ''; // Ini sekarang berisi URL lh3.google.com
+      signerSignature = map.invitation_signature || ''; 
     }
 
     const area = document.getElementById('invArea');
@@ -990,7 +967,6 @@ window.ViewsAdmin = (function () {
       const cell = document.createElement('div');
       cell.className = 'invite';
       
-      // signerSignature sekarang URL, jadi tag <img> akan memuat dari Drive
       cell.innerHTML = `
         <div class="invite-inner">
           <div class="kop-surat">
@@ -1091,7 +1067,7 @@ window.ViewsAdmin = (function () {
       margin:       0,
       filename:     `undangan-pemilih-hal-${invPage}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true }, // useCORS diperlukan untuk gambar dari Drive
+      html2canvas:  { scale: 2, useCORS: true },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
@@ -1117,9 +1093,6 @@ window.ViewsAdmin = (function () {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'daftar-pemilih.csv'; a.click();
   }
 
-  /* ============================================================
-   *  RESULTS
-   * ============================================================ */
   let lastResultsData = null;
 
   async function results() {
@@ -1189,9 +1162,6 @@ window.ViewsAdmin = (function () {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hasil-pemilihan.csv'; a.click();
   }
 
-  /* ============================================================
-   *  BERITA ACARA
-   * ============================================================ */
   async function beritaAcara() {
     clearAllPolls();
     const el = view();
@@ -1347,9 +1317,6 @@ window.ViewsAdmin = (function () {
     w.document.close();
   }
 
-  /* ============================================================
-   *  EXPORTS
-   * ============================================================ */
   return {
     dashboard,
     voters, addVoter, editVoter, deleteVoter, searchVoters, setVoterSort, setVoterFilterRt, bulkImport,
