@@ -797,7 +797,7 @@ Ani,02,02,Jl. Melati,085678"></textarea>
         </div>
       </div>
       
-      <div style="overflow-x: auto; padding: 20px 0;">
+      <div style="overflow-x: auto; padding: 20px 0; width: 100%;">
         <div id="invPrintArea" class="preview-zoom">
           ${UI.skeleton(3)}
         </div>
@@ -909,7 +909,7 @@ Ani,02,02,Jl. Melati,085678"></textarea>
       const signHtml = signerSig ? `<img src="${esc(signerSig)}" alt="TTD">` : '';
       return `
         <div class="invite-wrapper">
-          <div class="invite" id="inv-${esc(v.id)}">
+          <div class="invite">
             <div class="invite-inner">
               <div class="kop-surat">
                 <img src="assets/logo.svg" alt="Logo RAS" onerror="this.style.display='none'">
