@@ -1,11 +1,6 @@
 /* ============================================================
-   E-VOTE • views-bilik.js (FULL FIX)
+   E-VOTE • views-bilik.js (FULL FIX - MODE TUNGGAL/GANDA)
    Role: BILIK
-   - Polling booth.status aman (anti race condition)
-   - Guard double-loading voter aktif
-   - Camera lifecycle bersih (auto-stop saat cleanup)
-   - Vote submit: state reset konsisten + retry-safe
-   - Tidak crash jika API gagal sesaat
    ============================================================ */
 window.ViewsBilik = (function () {
   'use strict';
@@ -14,7 +9,7 @@ window.ViewsBilik = (function () {
   const PING_MS   = 30000;
   const CAM_MAX   = 320;
   const PHOTO_Q   = 0.7;
-
+  
   const LABELS = {
     ketua_rt:           'Ketua RT',
     ketua_pemuda:       'Ketua Pemuda',
@@ -23,7 +18,6 @@ window.ViewsBilik = (function () {
   };
   const labelPos = p => LABELS[p] || p;
 
-  /* ---------- Module state ---------- */
   let pollTimer = null;
   let pingTimer = null;
   let cameraStream = null;
@@ -36,6 +30,7 @@ window.ViewsBilik = (function () {
     candidates: [],
     photo:      null,
     submitting: false,
+    settings:   {} // Untuk menyimpan mode pemilihan
   };
 
   function user() { return API.user() || {}; }
@@ -43,9 +38,6 @@ window.ViewsBilik = (function () {
   function isTrue(v) { return v === true || String(v) === 'TRUE' || String(v) === 'true'; }
   function esc(s) { return UI.escapeHtml(s); }
 
-  /* ============================================================
-   *  CLEANUP
-   * ============================================================ */
   function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
   function stopPing() { if (pingTimer) { clearInterval(pingTimer); pingTimer = null; } }
   function stopCamera() {
@@ -62,14 +54,10 @@ window.ViewsBilik = (function () {
     stopCamera();
     loadingBooth = false;
     loadingVoter = false;
-    state = {
-      booth: null, voter: null, candidates: [], photo: null, submitting: false
-    };
+    state = { booth: null, voter: null, candidates: [], photo: null, submitting: false, settings: {} };
   }
 
-  /* ============================================================
-   *  ENTRY
-   * ============================================================ */
+  /* ENTRY */
   async function dashboard() {
     cleanup();
     const el = view();
@@ -112,15 +100,13 @@ window.ViewsBilik = (function () {
     if (btnCamOn) btnCamOn.onclick = () => startCamera();
     if (btnCamSnap) btnCamSnap.onclick = () => capturePhoto(false);
 
+    // Load Pengaturan (Mode Single/Dual) dan Kandidat
+    await loadSettings();
     await loadCandidates();
 
-    // Heartbeat ping ke server
     API.post('booth.ping').catch(() => {});
     pingTimer = setInterval(() => {
-      if (!document.getElementById('bilikStatusCard')) {
-        stopPing();
-        return;
-      }
+      if (!document.getElementById('bilikStatusCard')) { stopPing(); return; }
       API.post('booth.ping').catch(() => {});
     }, PING_MS);
 
@@ -128,9 +114,13 @@ window.ViewsBilik = (function () {
     pollTimer = setInterval(refreshBooth, POLL_MS);
   }
 
-  /* ============================================================
-   *  DATA LOADERS
-   * ============================================================ */
+  async function loadSettings() {
+    try {
+      const r = await API.post('settings.public');
+      if (r && r.success) state.settings = r.data || {};
+    } catch (_) {}
+  }
+
   async function loadCandidates() {
     try {
       const r = await API.post('list', { sheet: 'candidates' });
@@ -142,7 +132,6 @@ window.ViewsBilik = (function () {
   }
 
   async function refreshBooth() {
-    // Anti race: skip kalau sedang load atau voter sedang aktif
     if (loadingBooth || loadingVoter) return;
     if (state.voter) return;
 
@@ -173,7 +162,6 @@ window.ViewsBilik = (function () {
   }
 
   async function loadActiveVoter(voterId) {
-    // Sudah ada voter yang sama → skip
     if (state.voter && String(state.voter.id) === String(voterId)) return;
     if (loadingVoter) return;
 
@@ -186,15 +174,8 @@ window.ViewsBilik = (function () {
       }
       const voter = r.data[0];
 
-      // Sudah memilih → kosongkan bilik
       if (isTrue(voter.voted)) {
-        try {
-          await API.post('booth.setCurrent', {
-            boothId: state.booth.id,
-            voterId: '',
-            name: state.booth.name || ''
-          });
-        } catch (_) {}
+        try { await API.post('booth.setCurrent', { boothId: state.booth.id, voterId: '', name: state.booth.name || '' }); } catch (_) {}
         return;
       }
 
@@ -202,7 +183,6 @@ window.ViewsBilik = (function () {
       state.photo = null;
       renderVoting();
 
-      // Auto-capture jika kamera sudah aktif
       if (cameraStream) setTimeout(() => capturePhoto(true), 700);
     } catch (err) {
       console.warn('[bilik] loadActiveVoter error:', err);
@@ -212,26 +192,19 @@ window.ViewsBilik = (function () {
   }
 
   function clearActiveVoter() {
-    if (!state.voter) {
-      // Tetap pastikan UI kosong
-      renderWaiting();
-      return;
-    }
+    if (!state.voter) { renderWaiting(); return; }
     state.voter = null;
     state.photo = null;
 
     const card = document.getElementById('bilikActiveCard');
     if (card) card.style.display = 'none';
-
     const thumb = document.getElementById('photoThumb');
     if (thumb) thumb.innerHTML = '';
 
     renderWaiting();
   }
 
-  /* ============================================================
-   *  RENDER
-   * ============================================================ */
+  /* RENDER */
   function renderNoBooth() {
     const text = document.getElementById('bilikStatusText');
     const badge = document.getElementById('bilikBadge');
@@ -287,24 +260,26 @@ window.ViewsBilik = (function () {
     if (!voteArea) return;
 
     if (!positions.length) {
-      voteArea.innerHTML = `
-        <div class="card text-center" style="padding:32px">
-          <p class="hint" style="color:var(--err)">Belum ada calon aktif. Hubungi admin.</p>
-        </div>`;
+      voteArea.innerHTML = `<div class="card text-center" style="padding:32px"><p class="hint" style="color:var(--err)">Belum ada calon aktif. Hubungi admin.</p></div>`;
       return;
     }
+
+    // Cek Mode Pemilihan
+    const mode = state.settings.voting_mode || 'single';
+    const isDual = (mode === 'dual');
+    const inputType = isDual ? 'checkbox' : 'radio';
 
     voteArea.innerHTML = `
       <div class="card">
         <h3>Pilih Calon</h3>
-        <p class="hint">Pilih satu calon per posisi. Kosongkan jika ingin suara kosong.</p>
+        <p class="hint">${isDual ? 'Anda dapat memilih maksimal 2 calon (Ketua & Wakil).' : 'Pilih satu calon per posisi.'}</p>
         ${positions.map(pos => `
           <div class="pos-group" data-pos="${esc(pos)}">
             <h4>${esc(labelPos(pos))}</h4>
             <div class="cand-list">
               ${groups[pos].map(c => `
                 <label class="cand-item">
-                  <input type="radio" name="pos-${esc(pos)}" value="${esc(c.id)}">
+                  <input type="${inputType}" name="pos-${esc(pos)}" value="${esc(c.id)}" class="${isDual ? 'dual-checkbox' : ''}">
                   <img src="${esc(c.photoUrl || '')}" alt=""
                        onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2252%22 height=%2252%22><circle cx=%2226%22 cy=%2226%22 r=%2226%22 fill=%22%23e2e8f0%22/></svg>'">
                   <div><strong>${esc(c.name)}</strong><div class="hint">No. ${esc(c.noUrut || '-')}</div></div>
@@ -324,22 +299,15 @@ window.ViewsBilik = (function () {
     if (btnSubmit) btnSubmit.onclick = () => submitVote(false);
   }
 
-  /* ============================================================
-   *  CAMERA
-   * ============================================================ */
+  /* CAMERA */
   async function startCamera() {
-    if (cameraStream) {
-      UI.toast('Kamera sudah aktif', 'info');
-      return;
-    }
+    if (cameraStream) { UI.toast('Kamera sudah aktif', 'info'); return; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      UI.toast('Browser tidak mendukung kamera', 'error');
-      return;
+      UI.toast('Browser tidak mendukung kamera', 'error'); return;
     }
     try {
       cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 } },
-        audio: false
+        video: { facingMode: 'user', width: { ideal: 640 } }, audio: false
       });
       const video = document.getElementById('camPreview');
       const wrap = document.getElementById('camWrap');
@@ -356,22 +324,17 @@ window.ViewsBilik = (function () {
     const video = document.getElementById('camPreview');
     const canvas = document.getElementById('photoCanvas');
     if (!video || !canvas) return;
-    if (!video.videoWidth) {
-      if (!silent) UI.toast('Kamera belum siap', 'error');
-      return;
-    }
+    if (!video.videoWidth) { if (!silent) UI.toast('Kamera belum siap', 'error'); return; }
 
     try {
       canvas.width  = video.videoWidth;
       canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
+      canvas.getContext('2d').drawImage(video, 0, 0);
       state.photo = canvas.toDataURL('image/jpeg', PHOTO_Q);
 
       const thumb = document.getElementById('photoThumb');
       if (thumb) {
-        thumb.innerHTML = `<img src="${state.photo}" alt="Foto pemilih"
-          style="max-width:120px;border-radius:10px;border:1px solid var(--border)">`;
+        thumb.innerHTML = `<img src="${state.photo}" alt="Foto" style="max-width:120px;border-radius:10px;border:1px solid var(--border)">`;
       }
       if (!silent) UI.toast('Foto tersimpan', 'success');
     } catch (err) {
@@ -379,32 +342,44 @@ window.ViewsBilik = (function () {
     }
   }
 
-  /* ============================================================
-   *  SUBMIT
-   * ============================================================ */
+  /* SUBMIT */
   async function submitVote(blank) {
     if (state.submitting) return;
 
     const v = state.voter;
     if (!v) { UI.toast('Tidak ada pemilih aktif', 'error'); return; }
 
+    const mode = state.settings.voting_mode || 'single';
+    const isDual = (mode === 'dual');
     const votes = [];
+    let isError = false;
+
     document.querySelectorAll('.pos-group').forEach(g => {
-      const sel = g.querySelector('input:checked');
-      if (sel) votes.push({ position: g.dataset.pos, candidateId: sel.value });
+      const checked = g.querySelectorAll('input:checked');
+      
+      // Validasi Mode Ganda (Maksimal 2 Suara)
+      if (isDual && checked.length > 2) {
+        UI.toast('Maksimal memilih 2 calon (Ketua & Wakil)', 'error');
+        isError = true;
+      }
+
+      checked.forEach(sel => {
+        votes.push({ position: g.dataset.pos, candidateId: sel.value });
+      });
     });
+
+    if (isError) return;
 
     if (!blank && votes.length === 0) {
       UI.toast('Pilih minimal satu calon atau klik "Suara Kosong"', 'error');
       return;
     }
 
-    const ok = await UI.confirm(
-      blank
-        ? `Kirim SUARA KOSONG untuk ${v.name}?`
-        : `Kirim suara untuk ${v.name}? Tidak bisa diubah.`,
-      { okLabel: 'Ya, Kirim' }
-    );
+    const confirmMsg = blank
+      ? `Kirim SUARA KOSONG untuk ${v.name}?`
+      : `Kirim ${votes.length} suara untuk ${v.name}? Tidak bisa diubah.`;
+
+    const ok = await UI.confirm(confirmMsg, { okLabel: 'Ya, Kirim' });
     if (!ok) return;
 
     state.submitting = true;
@@ -414,11 +389,7 @@ window.ViewsBilik = (function () {
     if (btnBlank)  { btnBlank.disabled = true; }
 
     try {
-      const payload = {
-        voterId: v.id,
-        votes: votes,
-        photoUrl: state.photo || ''
-      };
+      const payload = { voterId: v.id, votes: votes, photoUrl: state.photo || '' };
       const r = await API.post('vote.submit', payload);
 
       if (!r || !r.success) {
@@ -426,11 +397,9 @@ window.ViewsBilik = (function () {
         return;
       }
 
-      // Sukses
       UI.toast('Suara tersimpan. Terima kasih!', 'success');
       try { Voice.speak('Terima kasih. Suara Anda telah tersimpan.'); } catch (_) {}
 
-      // Reset state
       stopCamera();
       const wrap = document.getElementById('camWrap');
       if (wrap) wrap.style.display = 'none';
@@ -453,13 +422,11 @@ window.ViewsBilik = (function () {
           </div>`;
       }
 
-      // Refresh booth untuk menunggu voter berikutnya
       refreshBooth();
     } catch (err) {
       UI.toast('Koneksi bermasalah: ' + (err.message || err), 'error');
     } finally {
       state.submitting = false;
-      // Tombol mungkin sudah tidak ada di DOM, guard
       const btnSubmit2 = document.getElementById('btnSubmit');
       const btnBlank2  = document.getElementById('btnBlank');
       if (btnSubmit2) { btnSubmit2.disabled = false; btnSubmit2.textContent = '✅ Kirim Suara'; }
@@ -467,9 +434,7 @@ window.ViewsBilik = (function () {
     }
   }
 
-  /* ============================================================
-   *  EXPORTS
-   * ============================================================ */
+  /* EXPORTS */
   return {
     dashboard,
     startCamera,
