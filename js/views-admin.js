@@ -103,7 +103,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  SETTINGS (Dengan TTD Digital - Perbaikan Total)
+   *  SETTINGS (Menggunakan URL Drive)
    * ============================================================ */
   async function settings() {
     clearAllPolls();
@@ -151,12 +151,15 @@ window.ViewsAdmin = (function () {
           <input type="text" class="input" name="invitation_signer" value="${esc(settingsMap.invitation_signer || 'Ketua Panitia')}">
         </label>
 
-        <!-- AREA TTD -->
+        <!-- TAMBAHAN: TTD DIGITAL (MENGGUNAKAN URL DRIVE) -->
         <label class="field">
           <span>Tanda Tangan Ketua Panitia (Untuk Undangan)</span>
+          <div id="sigPreviewArea" style="display: none; margin-bottom: 8px;">
+            <img id="sigPreviewImg" src="" style="max-height: 120px; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 4px;">
+          </div>
           <div id="sigPadSettings"></div>
           <div class="row" style="margin-top:8px">
-            <button type="button" class="btn-ghost btn-sm" id="btnClearSig">Hapus TTD</button>
+            <button type="button" class="btn-ghost btn-sm" id="btnClearSig">Hapus / Ganti TTD</button>
           </div>
         </label>
 
@@ -164,28 +167,33 @@ window.ViewsAdmin = (function () {
       </form>
     `;
 
-    // Beri jeda 100ms agar DOM selesai render sebelum inisialisasi canvas
+    // Beri jeda 100ms agar DOM selesai render
     setTimeout(() => {
       const sigHost = document.getElementById('sigPadSettings');
+      const sigPreviewArea = document.getElementById('sigPreviewArea');
+      const sigPreviewImg = document.getElementById('sigPreviewImg');
       const sigPad = Sign.mount(sigHost);
       
-      // Load TTD lama
-      if (settingsMap.invitation_signature && settingsMap.invitation_signature.length > 100) {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = sigPad.getCanvas();
-          const ctx = canvas.getContext('2d');
-          
-          // Paksa background putih solid
-          ctx.fillStyle = '#ffffff'; 
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
-        img.src = settingsMap.invitation_signature;
+      let currentSigUrl = settingsMap.invitation_signature || '';
+
+      function refreshPreview() {
+        if (currentSigUrl && currentSigUrl.length > 10) {
+          sigHost.style.display = 'none';
+          sigPreviewArea.style.display = 'block';
+          sigPreviewImg.src = currentSigUrl;
+        } else {
+          sigHost.style.display = 'block';
+          sigPreviewArea.style.display = 'none';
+        }
       }
 
-      document.getElementById('btnClearSig').onclick = () => sigPad.clear();
+      refreshPreview();
+
+      document.getElementById('btnClearSig').onclick = () => {
+        currentSigUrl = '';
+        sigPad.clear();
+        refreshPreview();
+      };
 
       document.getElementById('settingsForm').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -197,9 +205,8 @@ window.ViewsAdmin = (function () {
         let isoDate = '';
         if (dateVal) isoDate = new Date(dateVal).toISOString();
 
-        let sigData = settingsMap.invitation_signature || '';
-        
-        // Cek apakah kanvas ada isinya (coretan baru)
+        let sigData = currentSigUrl;
+        // Jika admin menggambar TTD baru, kirim Base64 ke backend (nanti backend ubah ke URL)
         if (!sigPad.isEmpty()) {
           sigData = sigPad.toDataURL('image/png');
         }
@@ -207,11 +214,18 @@ window.ViewsAdmin = (function () {
         await API.post('settings.save', { key: 'election_date', value: isoDate });
         await API.post('settings.save', { key: 'event_name', value: fd.get('event_name') });
         await API.post('settings.save', { key: 'invitation_signer', value: fd.get('invitation_signer') });
-        await API.post('settings.save', { key: 'invitation_signature', value: sigData });
+        
+        // Backend akan mendeteksi ini sebagai Base64 dan menguploadnya ke Drive
+        const res = await API.post('settings.save', { key: 'invitation_signature', value: sigData });
+        
+        if (res.success && res.data.value.startsWith('http')) {
+          currentSigUrl = res.data.value; // Simpan URL baru
+        }
 
         Cache.clearAll();
         UI.toast('Pengaturan berhasil disimpan', 'success');
         btn.disabled = false; btn.textContent = '💾 Simpan Pengaturan';
+        refreshPreview();
       });
     }, 100);
   }
@@ -921,7 +935,7 @@ window.ViewsAdmin = (function () {
       const map = {};
       st.data.forEach(s => map[s.key] = s.value);
       signerName = map.invitation_signer || signerName;
-      signerSignature = map.invitation_signature || '';
+      signerSignature = map.invitation_signature || ''; // Ini sekarang berisi URL lh3.google.com
     }
 
     const area = document.getElementById('invArea');
@@ -976,6 +990,7 @@ window.ViewsAdmin = (function () {
       const cell = document.createElement('div');
       cell.className = 'invite';
       
+      // signerSignature sekarang URL, jadi tag <img> akan memuat dari Drive
       cell.innerHTML = `
         <div class="invite-inner">
           <div class="kop-surat">
@@ -1023,7 +1038,7 @@ window.ViewsAdmin = (function () {
               <div class="ttd-box">
                 <div class="ttd-jabatan">Hormat kami,<br>Ketua Panitia</div>
                 <div class="ttd-space">
-                  ${signerSignature ? `<img src="${signerSignature}" alt="TTD">` : ''}
+                  ${signerSignature ? `<img src="${signerSignature}" alt="TTD" style="max-height:100%; max-width:100%; object-fit:contain;">` : ''}
                 </div>
                 <div class="ttd-nama">${esc(signerName)}</div>
               </div>
@@ -1076,7 +1091,7 @@ window.ViewsAdmin = (function () {
       margin:       0,
       filename:     `undangan-pemilih-hal-${invPage}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true },
+      html2canvas:  { scale: 2, useCORS: true }, // useCORS diperlukan untuk gambar dari Drive
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
