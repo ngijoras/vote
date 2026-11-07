@@ -177,10 +177,12 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  VOTERS
+   *  VOTERS (Filter RT, Search, Sorting)
    * ============================================================ */
   let allVoters = [];
   let voterSearchQ = '';
+  let voterSortBy = 'name_asc';
+  let voterFilterRt = '';
 
   async function voters() {
     clearAllPolls();
@@ -204,10 +206,50 @@ window.ViewsAdmin = (function () {
   function renderVoters() {
     const area = document.getElementById('votersArea');
     if (!area) return;
+    
     const q = voterSearchQ.toLowerCase();
-    const filtered = q ? allVoters.filter(v => (v.name || '').toLowerCase().includes(q) || (v.code || '').toLowerCase().includes(q)) : allVoters;
+    
+    // 1. Kumpulkan daftar RT unik untuk dropdown
+    const uniqueRts = [...new Set(allVoters.map(v => v.rt).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
+    
+    // 2. Filter berdasarkan pencarian & RT
+    let filtered = allVoters.filter(v => {
+      const matchSearch = q ? (v.name || '').toLowerCase().includes(q) || (v.code || '').toLowerCase().includes(q) : true;
+      const matchRt = voterFilterRt ? String(v.rt) === String(voterFilterRt) : true;
+      return matchSearch && matchRt;
+    });
+
+    // 3. Urutkan berdasarkan pilihan (Sorting)
+    filtered.sort((a, b) => {
+      if (voterSortBy === 'rt_asc') {
+        const rtA = parseInt(a.rt) || 0;
+        const rtB = parseInt(b.rt) || 0;
+        if (rtA !== rtB) return rtA - rtB;
+        return (a.name || '').localeCompare(b.name || '');
+      } 
+      else if (voterSortBy === 'rt_desc') {
+        const rtA = parseInt(a.rt) || 0;
+        const rtB = parseInt(b.rt) || 0;
+        if (rtA !== rtB) return rtB - rtA;
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      else if (voterSortBy === 'name_desc') {
+        return (b.name || '').localeCompare(a.name || '');
+      }
+      else if (voterSortBy === 'status') {
+        const votedA = isTrue(a.voted) ? 1 : 0;
+        const votedB = isTrue(b.voted) ? 1 : 0;
+        if (votedA !== votedB) return votedA - votedB;
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      else {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+    });
+
     const voted = allVoters.filter(v => isTrue(v.voted)).length;
 
+    // 4. Render UI
     area.innerHTML = `
       <div class="row-between">
         <div>
@@ -219,18 +261,36 @@ window.ViewsAdmin = (function () {
           <button class="btn-primary" onclick="ViewsAdmin.addVoter()">+ Tambah</button>
         </div>
       </div>
-      <div class="row" style="margin-top:12px">
-        <input class="input" placeholder="Cari nama atau kode pemilih…" value="${esc(voterSearchQ)}" oninput="ViewsAdmin.searchVoters(this.value)" style="max-width:360px">
+      
+      <!-- TOOLBAR FILTER & SORTING -->
+      <div class="row" style="margin-top:16px; align-items:center; background:#f8fafc; padding:12px; border-radius:12px; border:1px solid var(--border);">
+        
+        <input class="input" placeholder="Cari nama atau kode pemilih…" value="${esc(voterSearchQ)}" oninput="ViewsAdmin.searchVoters(this.value)" style="flex:1; min-width:200px;">
+        
+        <select class="input" style="max-width:150px" onchange="ViewsAdmin.setVoterFilterRt(this.value)">
+          <option value="">Semua RT</option>
+          ${uniqueRts.map(rt => `<option value="${esc(rt)}" ${String(voterFilterRt) === String(rt) ? 'selected' : ''}>RT ${esc(rt)}</option>`).join('')}
+        </select>
+
+        <select class="input" style="max-width:180px" onchange="ViewsAdmin.setVoterSort(this.value)">
+          <option value="name_asc" ${voterSortBy === 'name_asc' ? 'selected' : ''}>Urut Nama (A-Z)</option>
+          <option value="name_desc" ${voterSortBy === 'name_desc' ? 'selected' : ''}>Urut Nama (Z-A)</option>
+          <option value="rt_asc" ${voterSortBy === 'rt_asc' ? 'selected' : ''}>Urut RT Terkecil</option>
+          <option value="rt_desc" ${voterSortBy === 'rt_desc' ? 'selected' : ''}>Urut RT Terbesar</option>
+          <option value="status" ${voterSortBy === 'status' ? 'selected' : ''}>Belum Memilih</option>
+        </select>
+
       </div>
+
       <div class="table-wrap" style="margin-top:12px">
         <table>
           <thead><tr><th>Kode</th><th>Nama</th><th>RT/RW</th><th>Telp</th><th>Status</th><th>Aksi</th></tr></thead>
           <tbody>
-            ${filtered.length === 0 ? `<tr><td colspan="6" class="hint" style="text-align:center;padding:24px">Belum ada data</td></tr>` : filtered.map(v => `
+            ${filtered.length === 0 ? `<tr><td colspan="6" class="hint" style="text-align:center;padding:24px">Tidak ada data yang cocok dengan filter.</td></tr>` : filtered.map(v => `
                 <tr>
                   <td><code>${esc(v.code)}</code></td>
                   <td>${esc(v.name)}</td>
-                  <td>${esc(v.rt || '-')}/${esc(v.rw || '-')}</td>
+                  <td><span class="badge info">RT ${esc(v.rt || '-')}</span> / ${esc(v.rw || '-')}</td>
                   <td>${esc(v.phone || '-')}</td>
                   <td>${isTrue(v.voted) ? '<span class="badge ok">Memilih</span>' : '<span class="badge">Belum</span>'}</td>
                   <td>
@@ -251,6 +311,16 @@ window.ViewsAdmin = (function () {
     renderVoters();
     const el = view().querySelector('input[placeholder^="Cari"]');
     if (el) { el.focus(); el.setSelectionRange(q.length, q.length); }
+  }
+
+  function setVoterSort(val) {
+    voterSortBy = val;
+    renderVoters();
+  }
+
+  function setVoterFilterRt(val) {
+    voterFilterRt = val;
+    renderVoters();
   }
 
   function buildVoterForm(v) {
@@ -528,7 +598,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  BOOTHS
+   *  BOOTHS (Dengan Indikator Online/Offline)
    * ============================================================ */
   let allBooths = [];
 
@@ -537,14 +607,13 @@ window.ViewsAdmin = (function () {
     const el = view();
     el.innerHTML = `<div class="card"><div id="boothArea">${UI.skeleton(3)}</div></div>`;
     await loadBooths();
-    setPoll('boothArea', 5000, loadBooths); // Polling 5 detik untuk update status ping
+    setPoll('boothArea', 5000, loadBooths);
   }
 
   async function loadBooths() {
     const area = document.getElementById('boothArea');
     if (!area) return;
     
-    // Menggunakan endpoint booth.status agar mendapatkan data heartbeat (lastActive)
     const r = await Cache.fetchApi('booth.status', {});
     if (!r.success) return;
     
@@ -568,7 +637,6 @@ window.ViewsAdmin = (function () {
       <div style="margin-top:12px">
         ${allBooths.length === 0 ? `<p class="hint">Belum ada bilik.</p>` : allBooths.map(b => {
           
-          // Cek Online/Offline (Toleransi 2 menit)
           const isOnline = b.lastActive && (now - Number(b.lastActive) < 120000);
           const statusIndicator = isOnline 
             ? `<span class="dot-indicator online" title="Perangkat Aktif"></span> Online`
@@ -1110,7 +1178,7 @@ window.ViewsAdmin = (function () {
    * ============================================================ */
   return {
     dashboard,
-    voters, addVoter, editVoter, deleteVoter, searchVoters, bulkImport,
+    voters, addVoter, editVoter, deleteVoter, searchVoters, setVoterSort, setVoterFilterRt, bulkImport,
     candidates, addCandidate, editCandidate, deleteCandidate,
     booths, addBooth, renameBooth, resetBooth, deleteBooth,
     users, addUser, editUser, deleteUser,
