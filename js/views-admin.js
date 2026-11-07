@@ -154,8 +154,8 @@ window.ViewsAdmin = (function () {
         <!-- TAMBAHAN: TTD DIGITAL -->
         <label class="field">
           <span>Tanda Tangan Ketua Panitia (Untuk Undangan)</span>
-          <div id="sigPadSettings" style="border: 1px dashed var(--border); border-radius: 12px; margin-bottom: 8px; background:#fff;"></div>
-          <div class="row" style="margin-top:4px">
+          <div id="sigPadSettings"></div>
+          <div class="row" style="margin-top:8px">
             <button type="button" class="btn-ghost btn-sm" id="btnClearSig">Hapus TTD</button>
           </div>
         </label>
@@ -174,6 +174,11 @@ window.ViewsAdmin = (function () {
       img.onload = () => {
         const canvas = sigPad.getCanvas();
         const ctx = canvas.getContext('2d');
+        
+        // Tambahkan background putih sebelum menggambar TTD lama
+        ctx.fillStyle = '#ffffff'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       };
       img.src = settingsMap.invitation_signature;
@@ -240,17 +245,14 @@ window.ViewsAdmin = (function () {
     
     const q = voterSearchQ.toLowerCase();
     
-    // 1. Kumpulkan daftar RT unik untuk dropdown
     const uniqueRts = [...new Set(allVoters.map(v => v.rt).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
     
-    // 2. Filter berdasarkan pencarian & RT
     let filtered = allVoters.filter(v => {
       const matchSearch = q ? (v.name || '').toLowerCase().includes(q) || (v.code || '').toLowerCase().includes(q) : true;
       const matchRt = voterFilterRt ? String(v.rt) === String(voterFilterRt) : true;
       return matchSearch && matchRt;
     });
 
-    // 3. Urutkan berdasarkan pilihan (Sorting)
     filtered.sort((a, b) => {
       if (voterSortBy === 'rt_asc') {
         const rtA = parseInt(a.rt) || 0;
@@ -280,7 +282,6 @@ window.ViewsAdmin = (function () {
 
     const voted = allVoters.filter(v => isTrue(v.voted)).length;
 
-    // 4. Render UI
     area.innerHTML = `
       <div class="row-between">
         <div>
@@ -293,7 +294,6 @@ window.ViewsAdmin = (function () {
         </div>
       </div>
       
-      <!-- TOOLBAR FILTER & SORTING -->
       <div class="row" style="margin-top:16px; align-items:center; background:#f8fafc; padding:12px; border-radius:12px; border:1px solid var(--border);">
         
         <input class="input" placeholder="Cari nama atau kode pemilih…" value="${esc(voterSearchQ)}" oninput="ViewsAdmin.searchVoters(this.value)" style="flex:1; min-width:200px;">
@@ -888,8 +888,10 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  INVITATIONS (Format Surat Formal + TTD Digital)
+   *  INVITATIONS (Format Surat Formal + TTD Digital & Layout)
    * ============================================================ */
+  let invLayoutMode = '4'; // State untuk tata letak ('4' atau '2')
+
   async function invitations() {
     clearAllPolls();
     const el = view();
@@ -927,13 +929,17 @@ window.ViewsAdmin = (function () {
 
     area.innerHTML = `
       <div class="row-between">
-        <div><h3>Undangan Pemilih (${voters.length})</h3><p class="hint">A4 dibagi 4 — cetak via Ctrl+P.</p></div>
+        <div><h3>Undangan Pemilih (${voters.length})</h3></div>
         <div class="row" style="margin:0">
+          <select class="input" id="layoutSelect" style="max-width: 150px; height: 38px; padding: 0 10px;" onchange="ViewsAdmin.changeInvLayout(this.value)">
+            <option value="4" ${invLayoutMode === '4' ? 'selected' : ''}>A4 dibagi 4</option>
+            <option value="2" ${invLayoutMode === '2' ? 'selected' : ''}>A4 dibagi 2</option>
+          </select>
           <button class="btn-ghost" onclick="ViewsAdmin.exportInvCSV()">⬇️ CSV</button>
           <button class="btn-primary" onclick="window.print()">🖨️ Cetak</button>
         </div>
       </div>
-      <div class="invitations-sheet" id="invSheet" style="margin-top:12px"></div>
+      <div class="invitations-sheet ${invLayoutMode === '2' ? 'layout-2' : 'layout-4'}" id="invSheet" style="margin-top:12px"></div>
     `;
 
     const sheet = document.getElementById('invSheet');
@@ -977,7 +983,6 @@ window.ViewsAdmin = (function () {
             </div>
             
             <div class="surat-ttd">
-              <!-- KIRI: Area Scan Pemilih -->
               <div class="ttd-box">
                 <div class="ttd-jabatan" style="font-weight:bold; margin-bottom: 6px;">Scan Pemilih</div>
                 <div class="qr-scan-wrapper">
@@ -986,7 +991,6 @@ window.ViewsAdmin = (function () {
                 </div>
               </div>
               
-              <!-- KANAN: TTD Ketua Panitia -->
               <div class="ttd-box">
                 <div class="ttd-jabatan">Hormat kami,<br>Ketua Panitia</div>
                 <div class="ttd-space">
@@ -1004,9 +1008,23 @@ window.ViewsAdmin = (function () {
     voters.forEach(v => {
       const qrEl = document.getElementById('qr-' + v.id);
       if (qrEl) try { 
-        QR.generate(qrEl, v.code, 85); // Ukuran QR disesuaikan
+        QR.generate(qrEl, v.code, 85); 
       } catch (e) { console.error('QR Error', e); }
     });
+  }
+
+  function changeInvLayout(mode) {
+    invLayoutMode = mode;
+    const sheet = document.getElementById('invSheet');
+    if (sheet) {
+      if (mode === '2') {
+        sheet.classList.remove('layout-4');
+        sheet.classList.add('layout-2');
+      } else {
+        sheet.classList.remove('layout-2');
+        sheet.classList.add('layout-4');
+      }
+    }
   }
 
   async function exportInvCSV() {
@@ -1258,7 +1276,7 @@ window.ViewsAdmin = (function () {
     candidates, addCandidate, editCandidate, deleteCandidate,
     booths, addBooth, renameBooth, resetBooth, deleteBooth,
     users, addUser, editUser, deleteUser,
-    invitations, exportInvCSV,
+    invitations, exportInvCSV, changeInvLayout,
     results, exportResultsCSV,
     beritaAcara, newBeritaAcara, printBeritaAcara,
     settings,
