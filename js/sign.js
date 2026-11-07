@@ -1,7 +1,7 @@
 /* ============================================================
    E-VOTE • sign.js
    Tanda Tangan Digital — Canvas-based
-   Dioptimalkan untuk Mouse (PC), Touch (HP), dan Stylus.
+   Menggunakan Pointer Events untuk stabilitas maksimal di PC & HP.
    ============================================================ */
 window.Sign = (function () {
   'use strict';
@@ -23,16 +23,18 @@ window.Sign = (function () {
     canvas.width = o.width;
     canvas.height = o.height;
     
-    // Styling canvas agar responsif dan tidak ada garis putus-putus bawaan
+    // Styling: Mencegah seleksi teks browser saat menggambar
     canvas.style.cssText = `
       width: 100%;
       height: auto;
       aspect-ratio: ${o.width}/${o.height};
       background: ${o.bgColor};
       border-radius: 8px;
-      touch-action: none;
       cursor: crosshair;
       display: block;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
     `;
     
     container.appendChild(canvas);
@@ -45,7 +47,7 @@ window.Sign = (function () {
     ctx.lineJoin = 'round';
     ctx.strokeStyle = o.strokeColor;
     
-    // Fill background putih solid
+    // Isi background putih solid
     ctx.fillStyle = o.bgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -71,7 +73,7 @@ window.Sign = (function () {
       if (activePointerId !== null) return; // Cegah multitouch
       activePointerId = e.pointerId;
       
-      // Set pointer capture agar gambar tetap dilacak walau kursor keluar canvas
+      // KUNCI PC: Set pointer capture agar gambar tetap dilacak walau kursor keluar kanvas
       try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
 
       drawing = true;
@@ -114,30 +116,29 @@ window.Sign = (function () {
         strokes.push(currentStroke);
         currentStroke = null;
       }
-      e.preventDefault();
+      if (e) e.preventDefault();
     }
 
-    // --- Event Listeners (Menggunakan Pointer Events) ---
-    canvas.addEventListener('pointerdown', begin);
-    canvas.addEventListener('pointermove', extend);
-    canvas.addEventListener('pointerup', finish);
-    canvas.addEventListener('pointercancel', finish);
-    
-    // Fallback untuk browser sangat lama (opsional, tapi bagus untuk kompatibilitas)
-    if (!window.PointerEvent) {
+    // --- Event Listeners ---
+    // Gunakan Pointer Events jika didukung (Modern Browser)
+    if (window.PointerEvent) {
+      canvas.addEventListener('pointerdown', begin);
+      canvas.addEventListener('pointermove', extend);
+      canvas.addEventListener('pointerup', finish);
+      canvas.addEventListener('pointercancel', finish);
+    } else {
+      // Fallback untuk browser lawas
       canvas.addEventListener('mousedown', begin);
-      window.addEventListener('mousemove', extend);
+      canvas.addEventListener('mousemove', extend);
       window.addEventListener('mouseup', finish);
-      canvas.addEventListener('touchstart', begin, {passive: false});
-      canvas.addEventListener('touchmove', extend, {passive: false});
-      canvas.addEventListener('touchend', finish, {passive: false});
+      canvas.addEventListener('touchstart', begin, { passive: false });
+      canvas.addEventListener('touchmove', extend, { passive: false });
+      canvas.addEventListener('touchend', finish, { passive: false });
     }
 
     // --- API Public ---
     return {
-      isEmpty: function () {
-        return strokes.length === 0;
-      },
+      isEmpty: function () { return strokes.length === 0; },
       clear: function () {
         strokes.length = 0;
         drawing = false;
@@ -145,18 +146,26 @@ window.Sign = (function () {
         currentStroke = null;
         ctx.fillStyle = o.bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = o.strokeColor;
-        ctx.lineWidth = o.strokeWidth;
       },
       toDataURL: function (type, quality) {
+        // Paksa PNG agar hasil solid
         return canvas.toDataURL(type || 'image/png', quality);
       },
       getCanvas: function () { return canvas; },
       destroy: function () {
-        canvas.removeEventListener('pointerdown', begin);
-        canvas.removeEventListener('pointermove', extend);
-        canvas.removeEventListener('pointerup', finish);
-        canvas.removeEventListener('pointercancel', finish);
+        if (window.PointerEvent) {
+          canvas.removeEventListener('pointerdown', begin);
+          canvas.removeEventListener('pointermove', extend);
+          canvas.removeEventListener('pointerup', finish);
+          canvas.removeEventListener('pointercancel', finish);
+        } else {
+          canvas.removeEventListener('mousedown', begin);
+          canvas.removeEventListener('mousemove', extend);
+          window.removeEventListener('mouseup', finish);
+          canvas.removeEventListener('touchstart', begin);
+          canvas.removeEventListener('touchmove', extend);
+          canvas.removeEventListener('touchend', finish);
+        }
         container.innerHTML = '';
       }
     };

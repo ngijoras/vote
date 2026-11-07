@@ -888,9 +888,9 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  INVITATIONS (Format Surat Formal + TTD Digital & Layout)
+   *  INVITATIONS (Format Surat Formal + TTD Digital & PDF)
    * ============================================================ */
-  let invLayoutMode = '4'; // State untuk tata letak ('4' atau '2')
+  let invLayoutMode = '4';
 
   async function invitations() {
     clearAllPolls();
@@ -924,25 +924,30 @@ window.ViewsAdmin = (function () {
       return;
     }
 
-    const today = new Date();
-    const dateStr = today.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-
     area.innerHTML = `
-      <div class="row-between">
+      <div class="row-between no-print">
         <div><h3>Undangan Pemilih (${voters.length})</h3></div>
-        <div class="row" style="margin:0">
-          <select class="input" id="layoutSelect" style="max-width: 150px; height: 38px; padding: 0 10px;" onchange="ViewsAdmin.changeInvLayout(this.value)">
+        <div class="row" style="margin:0; align-items:center;">
+          <select class="input" id="layoutSelect" style="width: 140px; height: 38px; padding: 0 10px;" onchange="ViewsAdmin.changeInvLayout(this.value)">
             <option value="4" ${invLayoutMode === '4' ? 'selected' : ''}>A4 dibagi 4</option>
             <option value="2" ${invLayoutMode === '2' ? 'selected' : ''}>A4 dibagi 2</option>
           </select>
           <button class="btn-ghost" onclick="ViewsAdmin.exportInvCSV()">⬇️ CSV</button>
+          <button class="btn-ghost" id="btnExportPDF" onclick="ViewsAdmin.exportInvPDF()">📄 PDF</button>
           <button class="btn-primary" onclick="window.print()">🖨️ Cetak</button>
         </div>
       </div>
-      <div class="invitations-sheet ${invLayoutMode === '2' ? 'layout-2' : 'layout-4'}" id="invSheet" style="margin-top:12px"></div>
+      
+      <!-- WRAPPER UNTUK HTML2PDF (Hanya ambil area ini) -->
+      <div id="invPrintArea" style="margin-top:12px; background:var(--bg); padding: 10px;">
+        <div class="invitations-sheet ${invLayoutMode === '2' ? 'layout-2' : 'layout-4'}" id="invSheet"></div>
+      </div>
     `;
 
     const sheet = document.getElementById('invSheet');
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+
     voters.forEach(v => {
       const cell = document.createElement('div');
       cell.className = 'invite';
@@ -1004,7 +1009,7 @@ window.ViewsAdmin = (function () {
       sheet.appendChild(cell);
     });
 
-    await new Promise(r => setTimeout(r, 60));
+    await new Promise(r => setTimeout(r, 100));
     voters.forEach(v => {
       const qrEl = document.getElementById('qr-' + v.id);
       if (qrEl) try { 
@@ -1024,6 +1029,46 @@ window.ViewsAdmin = (function () {
         sheet.classList.remove('layout-2');
         sheet.classList.add('layout-4');
       }
+    }
+  }
+
+  async function exportInvPDF() {
+    const btn = document.getElementById('btnExportPDF');
+    const originalText = btn.innerHTML;
+    
+    if (typeof html2pdf === 'undefined') {
+      btn.innerHTML = 'Memuat...';
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    btn.innerHTML = 'Memproses...';
+    btn.disabled = true;
+
+    const element = document.getElementById('invPrintArea');
+    
+    const opt = {
+      margin:       0,
+      filename:     'undangan-pemilih.pdf',
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+      await html2pdf().set(opt).from(element).save();
+      UI.toast('PDF berhasil diunduh', 'success');
+    } catch (err) {
+      console.error('PDF Error:', err);
+      UI.toast('Gagal membuat PDF', 'error');
+    } finally {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
     }
   }
 
@@ -1276,7 +1321,7 @@ window.ViewsAdmin = (function () {
     candidates, addCandidate, editCandidate, deleteCandidate,
     booths, addBooth, renameBooth, resetBooth, deleteBooth,
     users, addUser, editUser, deleteUser,
-    invitations, exportInvCSV, changeInvLayout,
+    invitations, exportInvCSV, changeInvLayout, exportInvPDF,
     results, exportResultsCSV,
     beritaAcara, newBeritaAcara, printBeritaAcara,
     settings,
