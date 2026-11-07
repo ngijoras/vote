@@ -50,6 +50,8 @@ body {
   font-size: 15px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  
+  /* PENCEGAHAN SELEKSI TEKS SAAT TTD DI PC */
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
