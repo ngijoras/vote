@@ -809,16 +809,33 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     const search = document.getElementById('invSearch');
     const layout = document.getElementById('invLayout');
 
-    // FUNGSI PENUNDA WAKTU: Agar QR dan TTD selesai loading sebelum print
-    const triggerPrintWithDelay = () => {
+    // FUNGSI: Menunggu semua gambar (Termasuk QR Code Canvas) siap 100%
+    const triggerPrintWithDelay = async () => {
       if (btnPrint) { btnPrint.disabled = true; btnPrint.textContent = '⏳ Menyiapkan...'; }
       if (btnExportPdf) { btnExportPdf.disabled = true; }
       
-      setTimeout(() => {
+      try {
+        const images = document.querySelectorAll('#invPrintArea img');
+        await Promise.all(Array.from(images).map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise(resolve => {
+            img.onload = resolve;
+            img.onerror = resolve; // Lanjutkan meski gambar gagal load
+          });
+        }));
+        
+        // Tambahan delay 800ms untuk memastikan Canvas QR Code sudah ter-render sempurna
+        setTimeout(() => {
+          window.print();
+          if (btnPrint) { btnPrint.disabled = false; btnPrint.textContent = '🖨️ Cetak'; }
+          if (btnExportPdf) { btnExportPdf.disabled = false; }
+        }, 800);
+        
+      } catch (e) {
         window.print();
         if (btnPrint) { btnPrint.disabled = false; btnPrint.textContent = '🖨️ Cetak'; }
         if (btnExportPdf) { btnExportPdf.disabled = false; }
-      }, 1500); // 1.5 detik jeda
+      }
     };
 
     if (btnPrint) btnPrint.onclick = triggerPrintWithDelay;
@@ -916,7 +933,15 @@ Ani,02,02,Jl. Melati,085678"></textarea>
     const layoutClass = (layoutEl && layoutEl.value) || 'layout-2';
 
     const renderInvite = (v) => {
-      const signHtml = signerSig ? `<img src="${esc(signerSig)}" alt="TTD">` : '';
+      // Konversi URL Google Drive ke format Thumbnail agar lebih stabil saat di-print
+      let finalSig = signerSig;
+      if (finalSig && finalSig.includes('drive.google.com')) {
+        const match = finalSig.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match) finalSig = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w400`;
+      }
+      
+      const signHtml = finalSig ? `<img src="${esc(finalSig)}" alt="TTD" crossorigin="anonymous">` : '';
+      
       return `
         <div class="invite-wrapper">
           <div class="invite">
@@ -980,14 +1005,24 @@ Ani,02,02,Jl. Melati,085678"></textarea>
       ${pageData.map(renderInvite).join('')}
     </div>`;
 
+    // Generate QR
     setTimeout(() => {
       pageData.forEach(v => {
         const container = document.getElementById('qr-' + v.id);
         if (container && window.QR) {
-          try { QR.generate(container, v.code || v.id, 150); } catch (_) {}
+          try { 
+            new QRCode(container, {
+              text: v.code || v.id,
+              width: 150,
+              height: 150,
+              colorDark : "#000000",
+              colorLight : "#ffffff",
+              correctLevel : QRCode.CorrectLevel.H
+            });
+          } catch (_) {}
         }
       });
-    }, 150);
+    }, 100);
   }
 
   function prevInvPage() {
