@@ -175,7 +175,7 @@ window.ViewsAdmin = (function () {
         const canvas = sigPad.getCanvas();
         const ctx = canvas.getContext('2d');
         
-        // Tambahkan background putih sebelum menggambar TTD lama
+        // KUNCI: Paksa background putih sebelum menempel gambar
         ctx.fillStyle = '#ffffff'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
@@ -197,6 +197,7 @@ window.ViewsAdmin = (function () {
       if (dateVal) isoDate = new Date(dateVal).toISOString();
 
       let sigData = settingsMap.invitation_signature || '';
+      // Jika ada coretan baru, timpa dengan yang baru
       if (!sigPad.isEmpty()) {
         sigData = sigPad.toDataURL('image/png');
       }
@@ -892,7 +893,7 @@ window.ViewsAdmin = (function () {
    * ============================================================ */
   let invLayoutMode = '4';
   let invPage = 1;
-  const invPerPage = 40; // 40 undangan = 10 lembar A4 (mode 4-up)
+  const invPerPage = 40; 
 
   async function invitations() {
     clearAllPolls();

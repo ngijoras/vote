@@ -1,6 +1,6 @@
 /* ============================================================
    E-VOTE • sign.js
-   Tanda Tangan Digital — Canvas-based (Sangat Robust)
+   Tanda Tangan Digital — Canvas-based (Sangat Robust untuk PC)
    ============================================================ */
 window.Sign = (function () {
   'use strict';
@@ -22,7 +22,7 @@ window.Sign = (function () {
     canvas.width = o.width;
     canvas.height = o.height;
     
-    // CSS Mencegah seleksi teks dan gesture default
+    // CSS Pencegahan Seleksi Teks & Gesture
     canvas.style.cssText = `
       width: 100%;
       height: auto;
@@ -54,9 +54,8 @@ window.Sign = (function () {
     let drawing = false;
     let activePointerId = null;
     let prevPos = null;
-    let hasStrokes = false; // Flag untuk validasi isEmpty
+    let hasStrokes = false;
 
-    // --- Coordinate Transformasi ---
     function getPos(e) {
       const rect = canvas.getBoundingClientRect();
       const sx = canvas.width / rect.width;
@@ -67,17 +66,16 @@ window.Sign = (function () {
       };
     }
 
-    // --- Event Handlers ---
     function onPointerDown(e) {
-      // Hanya respon klik kiri (mouse) atau sentuhan (touch)
+      // Hanya respon klik kiri (mouse) atau sentuhan pertama
       if (e.button !== undefined && e.button !== 0) return;
+      if (activePointerId !== null) return;
       
-      if (activePointerId !== null) return; // Abaikan jika sudah ada pointer aktif
       activePointerId = e.pointerId;
       
-      // KUNCI: Set pointer capture agar event terus mengikuti mouse meski keluar area
+      // KUNCI UTAMA PC: Pointer capture memastikan mouse terus terlacak meski keluar area
       try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
-      
+
       drawing = true;
       hasStrokes = true;
       prevPos = getPos(e);
@@ -124,14 +122,14 @@ window.Sign = (function () {
       prevPos = null;
     }
 
-    // --- Attach Listeners ---
+    // Attach Listeners (Prioritas Pointer Events)
     if (window.PointerEvent) {
       canvas.addEventListener('pointerdown', onPointerDown);
       canvas.addEventListener('pointermove', onPointerMove);
       canvas.addEventListener('pointerup', onPointerUp);
       canvas.addEventListener('pointercancel', onPointerCancel);
     } else {
-      // Fallback (Browser lawas)
+      // Fallback untuk browser lawas
       canvas.addEventListener('mousedown', onPointerDown);
       window.addEventListener('mousemove', onPointerMove);
       window.addEventListener('mouseup', onPointerUp);
@@ -140,7 +138,6 @@ window.Sign = (function () {
       canvas.addEventListener('touchend', onPointerUp, {passive: false});
     }
 
-    // --- API Public ---
     return {
       isEmpty: function () { return !hasStrokes; },
       clear: function () {
@@ -150,8 +147,11 @@ window.Sign = (function () {
         prevPos = null;
         ctx.fillStyle = o.bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = o.strokeColor;
+        ctx.lineWidth = o.strokeWidth;
       },
       toDataURL: function (type, quality) {
+        // Paksa PNG agar hasil transparan diganti solid putih
         return canvas.toDataURL(type || 'image/png', quality);
       },
       getCanvas: function () { return canvas; },
