@@ -1,5 +1,5 @@
 /* ============================================================
-   E-VOTE • views-admin.js (FULL FIX - FINAL)
+   E-VOTE • views-admin.js (FULL FIX)
    Role: ADMIN
    ============================================================ */
 window.ViewsAdmin = (function () {
@@ -307,7 +307,12 @@ window.ViewsAdmin = (function () {
               });
               
               if (uploadRes && uploadRes.success && uploadRes.data) {
-                row.photoUrl = uploadRes.data.value; 
+                let url = uploadRes.data.value;
+                if (url.includes('drive.google.com')) {
+                  const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                  if (match) url = `https://lh3.googleusercontent.com/d/${match[1]}`;
+                }
+                row.photoUrl = url; 
                 if (status) { status.textContent = 'Upload berhasil!'; status.style.color = 'var(--ok)'; }
               } else {
                 throw new Error(uploadRes.message || 'Gagal upload');
@@ -909,7 +914,6 @@ window.ViewsAdmin = (function () {
         if (window.Sign) {
           const pad = Sign.mount(padHost);
           
-          // Tombol Undo & Hapus
           row.querySelector('.btn-undo-pad').onclick = () => pad.undo && pad.undo();
           row.querySelector('.btn-clear-pad').onclick = () => pad.clear && pad.clear();
 
@@ -1060,7 +1064,7 @@ window.ViewsAdmin = (function () {
         event_location: (document.getElementById('sEventLoc') || {}).value || '', 
         election_date: (document.getElementById('sElectionDate') || {}).value || '', 
         invitation_signer: (document.getElementById('sSigner') || {}).value || '',
-        voting_mode: (document.getElementById('sVotingMode') || {}).value || 'single' // <--- TAMBAHAN
+        voting_mode: (document.getElementById('sVotingMode') || {}).value || 'single'
       };
       for (const key of Object.keys(updates)) { try { await API.post('settings.save', { key, value: updates[key] }); } catch (_) {} }
       

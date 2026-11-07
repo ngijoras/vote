@@ -1,5 +1,5 @@
 /* ============================================================
-   E-VOTE • views-bilik.js (FULL FIX - MODE TUNGGAL/GANDA)
+   E-VOTE • views-bilik.js (FULL FIX)
    Role: BILIK
    ============================================================ */
 window.ViewsBilik = (function () {
@@ -30,7 +30,7 @@ window.ViewsBilik = (function () {
     candidates: [],
     photo:      null,
     submitting: false,
-    settings:   {} // Untuk menyimpan mode pemilihan
+    settings:   {}
   };
 
   function user() { return API.user() || {}; }
@@ -100,7 +100,6 @@ window.ViewsBilik = (function () {
     if (btnCamOn) btnCamOn.onclick = () => startCamera();
     if (btnCamSnap) btnCamSnap.onclick = () => capturePhoto(false);
 
-    // Load Pengaturan (Mode Single/Dual) dan Kandidat
     await loadSettings();
     await loadCandidates();
 
@@ -264,7 +263,6 @@ window.ViewsBilik = (function () {
       return;
     }
 
-    // Cek Mode Pemilihan
     const mode = state.settings.voting_mode || 'single';
     const isDual = (mode === 'dual');
     const inputType = isDual ? 'checkbox' : 'radio';
@@ -357,7 +355,6 @@ window.ViewsBilik = (function () {
     document.querySelectorAll('.pos-group').forEach(g => {
       const checked = g.querySelectorAll('input:checked');
       
-      // Validasi Mode Ganda (Maksimal 2 Suara)
       if (isDual && checked.length > 2) {
         UI.toast('Maksimal memilih 2 calon (Ketua & Wakil)', 'error');
         isError = true;

@@ -1,18 +1,6 @@
 /* ============================================================
-   E-VOTE • voice.js
+   E-VOTE • voice.js (FULL FIX - AUDIO UNLOCK)
    Text-to-Speech Bahasa Indonesia.
-   API: Voice.speak(text) • Voice.stop() • Voice.setConfig({...})
-        Voice.announceCheckin(name, booth) — kompat
-        Voice.announceBoothFree(booth, waitingName) — kompat
-        Voice.isSupported() • Voice.hasVoice() • Voice.isSpeaking()
-
-   Fitur:
-   - Auto-detect voice Indonesia (prioritas id-ID female → id-ID → id-* → default)
-   - Re-pick saat 'voiceschanged' (Chrome load async)
-   - Queue utterance — tidak ada nama hilang saat check-in beruntun
-   - Dedup window (default 1.5 dtk) — cegah polling dobel
-   - Safety timeout — mitigasi bug Chrome yang membuat speaking "nyangkut"
-   - Tidak pernah throw — semua path dibungkus try/catch
    ============================================================ */
 window.Voice = (function () {
   'use strict';
@@ -21,17 +9,15 @@ window.Voice = (function () {
   const Utter = (typeof window !== 'undefined' && window.SpeechSynthesisUtterance) || null;
   const supported = !!(synth && Utter);
 
-  /* ---------- Config ---------- */
   const config = {
     lang: 'id-ID',
     rate: 0.95,
     pitch: 1.05,
     volume: 1.0,
-    dedupMs: 1500,       // abaikan teks identik dalam window ini
-    safetyGraceMs: 5000, // buffer tambahan di atas estimasi durasi
+    dedupMs: 1500,
+    safetyGraceMs: 5000,
   };
 
-  /* ---------- State ---------- */
   let preferredVoice = null;
   let voicesReady    = false;
   let queue          = [];
@@ -39,6 +25,25 @@ window.Voice = (function () {
   let lastText       = '';
   let lastTextTime   = 0;
   let speakingNow    = false;
+
+  /* ---------- Unlock Audio (PENTING UNTUK HP) ---------- */
+  function unlockAudio() {
+    if (!supported) return;
+    try {
+      // Ucapkan spasi kosong untuk membangunkan mesin TTS
+      const u = new Utter(' ');
+      u.volume = 0;
+      synth.speak(u);
+    } catch (_) {}
+    // Hapus listener setelah sukses
+    document.removeEventListener('click', unlockAudio);
+    document.removeEventListener('touchstart', unlockAudio);
+  }
+
+  try {
+    document.addEventListener('click', unlockAudio);
+    document.addEventListener('touchstart', unlockAudio);
+  } catch (_) {}
 
   /* ============================================================
    *  VOICE PICKER
@@ -49,35 +54,30 @@ window.Voice = (function () {
     try { voices = synth.getVoices() || []; } catch (_) { voices = []; }
     if (!voices.length) return;
 
-    // Priority
     preferredVoice =
       voices.find(v => v.lang === 'id-ID' && /female|wanita|perempuan|damayanti|gadis/i.test(v.name)) ||
       voices.find(v => v.lang === 'id-ID') ||
       voices.find(v => v.lang === 'id_ID') ||
       voices.find(v => /^id[-_]?/i.test(v.lang)) ||
       voices.find(v => /indonesia|bahasa/i.test(v.name)) ||
-      voices.find(v => /^ms|^msa/i.test(v.lang)) || // Melayu, fallback
+      voices.find(v => /^ms|^msa/i.test(v.lang)) || 
       voices[0] || null;
 
     voicesReady = true;
   }
 
   if (supported) {
-    // Initial attempt
     pickVoice();
 
-    // 'voiceschanged' listener (standard)
     try {
       if (typeof synth.onvoiceschanged !== 'undefined') {
         synth.onvoiceschanged = pickVoice;
       }
-      // Double-bind via addEventListener too (some browsers)
       if (synth.addEventListener) {
         synth.addEventListener('voiceschanged', pickVoice);
       }
     } catch (_) {}
 
-    // Poll briefly — some browsers populate voices lazily
     let attempts = 0;
     const poll = setInterval(() => {
       if (voicesReady || attempts++ > 20) { clearInterval(poll); return; }
@@ -97,21 +97,17 @@ window.Voice = (function () {
     text = String(text == null ? '' : text).trim();
     if (!text) return;
 
-    // Dedup — skip repeated identical text in short window
     const now = Date.now();
     if (text === lastText && (now - lastTextTime) < config.dedupMs) return;
     lastText = text;
     lastTextTime = now;
 
-    // If already speaking → queue
     try {
       if (synth.speaking || synth.pending) {
         queue.push(text);
         return;
       }
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) {}
 
     doSpeak(text);
   }
@@ -146,7 +142,6 @@ window.Voice = (function () {
     utt.onerror = (e) => {
       cleanupTimer();
       speakingNow = false;
-      // 'interrupted' / 'canceled' = normal (we cancelled)
       const err = e && e.error;
       if (err !== 'interrupted' && err !== 'canceled' && err !== 'cancel') {
         console.warn('[Voice] utterance error:', err || e);
@@ -165,7 +160,7 @@ window.Voice = (function () {
       return;
     }
 
-    // Safety: kalau utterance tidak pernah onend (Chrome bug), paksa lanjut
+    // Safety timeout agar tidak "nyangkut" di Chrome
     const estimated = 800 + text.length * 90 + config.safetyGraceMs;
     safetyTimer = setTimeout(() => {
       console.warn('[Voice] safety timeout — forcing next');
@@ -179,7 +174,6 @@ window.Voice = (function () {
     if (!supported) return;
     if (queue.length === 0) return;
 
-    // Cek apakah synth benar-benar idle
     try {
       if (synth.speaking || synth.pending) return;
     } catch (_) {}
@@ -207,7 +201,6 @@ window.Voice = (function () {
     Object.keys(partial).forEach(k => {
       if (k in config) config[k] = partial[k];
     });
-    // Kalau language berubah, re-pick voice
     if ('lang' in partial) {
       voicesReady = false;
       pickVoice();
@@ -215,7 +208,7 @@ window.Voice = (function () {
   }
 
   /* ============================================================
-   *  PRESET ANNOUNCEMENTS (backward compat)
+   *  PRESET ANNOUNCEMENTS
    * ============================================================ */
   function announceCheckin(name, booth) {
     if (!name) return;
@@ -239,16 +232,11 @@ window.Voice = (function () {
    *  EXPORT
    * ============================================================ */
   return {
-    /* Core */
     speak: speak,
     stop: stop,
     setConfig: setConfig,
-
-    /* Compat */
     announceCheckin: announceCheckin,
     announceBoothFree: announceBoothFree,
-
-    /* Info */
     isSupported: () => supported,
     hasVoice: () => !!preferredVoice,
     isSpeaking: () => {
@@ -257,8 +245,6 @@ window.Voice = (function () {
       catch (_) { return speakingNow; }
     },
     getQueueLength: () => queue.length,
-
-    /* Debug */
     _getVoices: () => (supported ? (synth.getVoices() || []) : []),
     _getPreferred: () => preferredVoice,
     _config: config,
