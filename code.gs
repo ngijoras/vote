@@ -1,7 +1,7 @@
 /** ============================================================
- *  E-VOTE — Apps Script Backend (FINAL + COKLIT RT)
- *  Fitur: Auth, CRUD, Upload Drive, Voting, Reset, Backup,
- *         Audit Log, Coklit per RT, Auto-Sync Admin.
+ *  E-VOTE — Apps Script Backend (FINAL + FLYER + KUNCI BILIK)
+ *  Fitur: Auth, CRUD, Voting, Coklit RT, Flyer Data,
+ *         Kunci Bilik (Gatekeeper), Upload Drive, Backup.
  *  ============================================================ */
 const SS = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -17,9 +17,10 @@ const CELL_MAX  = 47000;
 const HEADERS = {
   Users:       ['id', 'username', 'passwordHash', 'name', 'role', 'boothId', 'active', 'createdAt', 'rt'],
   Voters:      ['id', 'code', 'name', 'rt', 'rw', 'address', 'phone', 'voted', 'checkinAt', 'boothId', 'photoUrl', 'signature', 'coklitStatus'],
-  Candidates:  ['id', 'noUrut', 'name', 'position', 'photoUrl', 'visi', 'misi', 'active'],
+  // ✅ TAMBAHAN: slogan & alamat untuk Flyer
+  Candidates:  ['id', 'noUrut', 'name', 'position', 'photoUrl', 'visi', 'misi', 'active', 'slogan', 'alamat'],
   Votes:       ['id', 'voterId', 'candidateId', 'position', 'timestamp', 'boothId'],
-  Booths:      ['id', 'name', 'status', 'currentVoterId', 'updatedAt', 'lastActive'],
+  Booths:      ['id', 'name', 'status', 'currentVoterId', 'updatedAt', 'lastActive', 'isAuthorized'],
   Attendance:  ['id', 'voterId', 'timestamp', 'signature', 'photoUrl', 'boothId'],
   Settings:    ['key', 'value'],
   BeritaAcara: ['id', 'title', 'content', 'photos', 'signatures', 'createdAt', 'createdBy'],
@@ -78,7 +79,7 @@ function route_(e) {
   let out;
 
   try {
-    /* ✅ Auto-migrate schema (murah, cuma cek header) */
+    /* ✅ Auto-migrate schema */
     try {
       ['users', 'voters', 'candidates', 'booths', 'votes', 'attendance',
        'settings', 'berita', 'logs', 'feedback'].forEach(ensureHeaders_);
@@ -110,7 +111,7 @@ function route_(e) {
       case 'voters.reset':   out = withAuth_(token, ['admin'], () => resetVoter_(body.id)); break;
       case 'voters.coklit':  out = withAuth_(token, ['admin', 'coklit'], (u) => updateCoklitStatus_(body, u)); break;
 
-      /* ---------- COKLIT REPORT (Admin & Petugas) ---------- */
+      /* ---------- COKLIT REPORT ---------- */
       case 'coklit.report':  out = withAuth_(token, ['admin', 'petugas'], () => coklitReport_()); break;
 
       /* ---------- ATTENDANCE ---------- */
@@ -122,6 +123,7 @@ function route_(e) {
       case 'booth.ping':       out = withAuth_(token, ['bilik'], (u) => pingBooth_(u)); break;
       case 'booth.status':     out = withAuth_(token, null, () => listBoothsWithPing_()); break;
       case 'booth.setCurrent': out = withAuth_(token, ['petugas', 'admin'], () => setBoothCurrent_(body)); break;
+      case 'booth.authorize':  out = withAuth_(token, ['petugas', 'admin'], () => authorizeBooth_(body)); break;
 
       /* ---------- VOTING ---------- */
       case 'vote.submit': out = withAuth_(token, ['bilik'], (u) => submitVotes_(u, body)); break;
@@ -153,7 +155,7 @@ function route_(e) {
 function safeParse_(s) { try { return JSON.parse(s); } catch (_) { return {}; } }
 
 /* ============================================================
- *  SCHEMA MIGRATION (auto-add missing columns)
+ *  SCHEMA MIGRATION
  * ============================================================ */
 function ensureHeaders_(name) {
   const realName = SHEETS[name] || name;
@@ -166,13 +168,11 @@ function ensureHeaders_(name) {
     ? sh.getRange(1, 1, 1, lastCol).getValues()[0]
     : [];
 
-  // Jika header identik (jumlah & urutan sama) → skip
   if (current.length === headers.length &&
       headers.every((h, i) => String(current[i]) === h)) return;
 
   const missing = headers.filter(h => current.indexOf(h) === -1);
 
-  // Tulis ulang header lengkap (baris data tidak disentuh)
   sh.getRange(1, 1, 1, headers.length).setValues([headers]);
   sh.setFrozenRows(1);
 
@@ -228,7 +228,7 @@ function login_(body) {
     role: String(user.role || '').toLowerCase(),
     name: user.name || user.username,
     boothId: user.boothId || '',
-    rt: String(user.rt || '').trim(),       // ✅ RT penanggung jawab (untuk coklit)
+    rt: String(user.rt || '').trim(),
     exp: Date.now() + TOKEN_TTL * 1000,
   };
   CacheService.getScriptCache().put('tok_' + token, JSON.stringify(payload), TOKEN_TTL);
@@ -251,7 +251,7 @@ function me_(token) {
     user: {
       id: u.id, username: u.username, role: u.role,
       name: u.name, boothId: u.boothId,
-      rt: u.rt || '',                        // ✅
+      rt: u.rt || '',
     },
   };
 }
@@ -290,12 +290,15 @@ function hash_(s) {
     .map(b => ((b < 0 ? b + 256 : b).toString(16)).padStart(2, '0')).join('');
 }
 
-/* ✅ NORMALISASI RT (PENTING!) */
 function normalizeRt_(rt) {
-  let val = String(rt || '').trim();
+  let val = String(rt || '').replace(/\s+/g, '').trim();
   if (!val) return '';
-  if (val.endsWith('.0')) val = val.slice(0, -2);
-  if (val.length === 1) val = '0' + val;
+  if (val.indexOf('.') > -1) {
+    val = val.split('.')[0];
+  }
+  if (val.length === 1) {
+    val = '0' + val;
+  }
   return val;
 }
 
@@ -481,6 +484,7 @@ function publicCandidates_() {
       id: c.id, noUrut: c.noUrut, name: c.name,
       photoUrl: c.photoUrl || '', visi: c.visi || '',
       misi: c.misi || '', position: c.position,
+      slogan: c.slogan || '', alamat: c.alamat || '',
     });
   });
   Object.keys(groups).forEach(pos => {
@@ -607,11 +611,10 @@ function updateCoklitStatus_(body, user) {
     const v = getRows_('voters').find(x => String(x.id) === String(voterId));
     if (!v) return { success: false, message: 'Pemilih tidak ditemukan' };
 
-    // ✅ Validasi RT: coklit hanya bisa validasi RT-nya sendiri
     const userRole = String(user.role || '').toLowerCase();
-    const userRt   = normalizeRt_(user.rt); // ✅ Normalisasi
+    const userRt   = normalizeRt_(user.rt);
     if (userRole === 'coklit' && userRt) {
-      const voterRt = normalizeRt_(v.rt);   // ✅ Normalisasi
+      const voterRt = normalizeRt_(v.rt);
       if (voterRt !== userRt) {
         return {
           success: false,
@@ -642,7 +645,6 @@ function resetVoter_(voterId) {
     const v = voters.find(x => String(x.id) === String(voterId));
     if (!v) return { success: false, message: 'Pemilih tidak ditemukan' };
 
-    // Hapus suara
     const shVotes = sheet_('votes');
     const dataVotes = shVotes.getDataRange().getValues();
     for (let i = dataVotes.length - 1; i >= 1; i--) {
@@ -651,14 +653,12 @@ function resetVoter_(voterId) {
       }
     }
 
-    // Kosongkan bilik
     getRows_('booths').forEach(b => {
       if (String(b.currentVoterId) === String(voterId)) {
         setBoothCurrent_({ boothId: b.id, voterId: '', name: b.name });
       }
     });
 
-    // ✅ Reset data + coklit
     saveRow_('voters', Object.assign({}, v, {
       voted: false,
       checkinAt: '',
@@ -675,19 +675,15 @@ function resetVoter_(voterId) {
   }
 }
 
-/* ============================================================
- *  COKLIT REPORT (Rekap per RT untuk Admin)
- * ============================================================ */
 function coklitReport_() {
   const voters = getRows_('voters');
   const users  = getRows_('users').filter(u =>
     String(u.role).toLowerCase() === 'coklit' && truthy_(u.active)
   );
 
-  // Rekap per RT
   const perRt = {};
   voters.forEach(v => {
-    const rt = normalizeRt_(v.rt) || 'unknown'; // ✅ Normalisasi
+    const rt = normalizeRt_(v.rt) || 'unknown';
     perRt[rt] = perRt[rt] || { total: 0, valid: 0, invalid: 0, pending: 0, petugas: [] };
     perRt[rt].total++;
     const st = String(v.coklitStatus || 'pending').toLowerCase();
@@ -696,9 +692,8 @@ function coklitReport_() {
     else                        perRt[rt].pending++;
   });
 
-  // Map petugas coklit ke RT
   users.forEach(u => {
-    const rt = normalizeRt_(u.rt); // ✅ Normalisasi
+    const rt = normalizeRt_(u.rt);
     if (rt && perRt[rt]) {
       perRt[rt].petugas.push({
         name: u.name || u.username,
@@ -707,7 +702,6 @@ function coklitReport_() {
     }
   });
 
-  // Summary global
   const total    = voters.length;
   const valid    = voters.filter(v => v.coklitStatus === 'valid').length;
   const invalid  = voters.filter(v => v.coklitStatus === 'invalid').length;
@@ -805,7 +799,9 @@ function listBoothsWithPing_() {
 
 function pickFreeBooth_() {
   return getRows_('booths').find(b =>
-    String(b.status) === 'ready' && !b.currentVoterId
+    String(b.status) === 'ready' && 
+    !b.currentVoterId && 
+    truthy_(b.isAuthorized)
   ) || null;
 }
 
@@ -840,9 +836,26 @@ function setBoothCurrent_(body) {
     name: overrideName || booth.name,
     status: voterId ? 'occupied' : 'ready',
     currentVoterId: voterId,
+    isAuthorized: voterId ? true : false,
     updatedAt: now,
   }));
   return { success: true, boothId, voterId, voterName };
+}
+
+function authorizeBooth_(body) {
+  const boothId = String(body.boothId || '').trim();
+  const authStatus = truthy_(body.isAuthorized);
+  if (!boothId) return { success: false, message: 'boothId wajib' };
+
+  const booth = getRows_('booths').find(b => String(b.id) === boothId);
+  if (!booth) return { success: false, message: 'Bilik tidak ditemukan' };
+
+  saveRow_('booths', Object.assign({}, booth, { 
+    isAuthorized: authStatus,
+    updatedAt: new Date().toISOString()
+  }));
+  log_('-', 'booth_auth', booth.name + ' → ' + (authStatus ? 'SIAP' : 'TUTUP'));
+  return { success: true, message: 'Izin bilik diperbarui' };
 }
 
 function updateVoterBooth_(voterId, boothId) {
@@ -966,11 +979,10 @@ function dashSummary_() {
 
   const voted = voters.filter(v => truthy_(v.voted)).length;
   const boothsReady    = booths.filter(b =>
-    String(b.status) === 'ready' && !b.currentVoterId
+    String(b.status) === 'ready' && !b.currentVoterId && truthy_(b.isAuthorized)
   ).length;
   const boothsOccupied = booths.filter(b => !!b.currentVoterId).length;
 
-  // ✅ Statistik coklit global
   const coklitValid   = voters.filter(v => String(v.coklitStatus) === 'valid').length;
   const coklitInvalid = voters.filter(v => String(v.coklitStatus) === 'invalid').length;
   const coklitPending = voters.length - coklitValid - coklitInvalid;
@@ -1031,21 +1043,17 @@ function importBackup_(body) {
 }
 
 /* ============================================================
- *  SEED DATABASE (jalankan sekali dari editor Apps Script)
- *  Auto-inject 4 akun coklit untuk 4 RT
- *  ============================================================ */
+ *  SEED DATABASE
+ * ============================================================ */
 function seedDatabase() {
-  // 1. Buat semua sheet (idempotent)
   ['users', 'voters', 'candidates', 'votes', 'booths',
    'attendance', 'settings', 'berita', 'logs', 'feedback']
     .forEach(name => sheet_(name));
 
-  // 2. Migrasi schema (tambah kolom baru jika belum ada)
   ['users', 'voters', 'candidates', 'booths', 'votes', 'attendance',
    'settings', 'berita', 'logs', 'feedback']
     .forEach(ensureHeaders_);
 
-  // 3. Seed user ADMIN
   let users = getRows_('users');
   if (!users.find(u => String(u.username) === 'admin')) {
     saveRow_('users', {
@@ -1057,7 +1065,6 @@ function seedDatabase() {
     });
   }
 
-  // 4. Seed user PETUGAS
   users = getRows_('users');
   if (!users.find(u => String(u.username) === 'petugas1')) {
     saveRow_('users', {
@@ -1069,7 +1076,6 @@ function seedDatabase() {
     });
   }
 
-  // 5. Seed user BILIK
   users = getRows_('users');
   if (!users.find(u => String(u.username) === 'bilik-1')) {
     saveRow_('users', {
@@ -1081,7 +1087,6 @@ function seedDatabase() {
     });
   }
 
-  // 6. ✅ INJECT 4 AKUN COKLIT (1 per RT)
   const coklitAccounts = [
     { username: 'coklit1', rt: '01', name: 'Petugas Coklit RT 01' },
     { username: 'coklit2', rt: '02', name: 'Petugas Coklit RT 02' },
@@ -1093,7 +1098,6 @@ function seedDatabase() {
   coklitAccounts.forEach(acc => {
     const existing = users.find(u => String(u.username) === acc.username);
     if (!existing) {
-      // Buat baru
       saveRow_('users', {
         username: acc.username,
         password: 'coklit123',
@@ -1103,7 +1107,6 @@ function seedDatabase() {
         active: true,
       });
     } else {
-      // Update role & RT agar konsisten
       const needsUpdate =
         String(existing.role || '').toLowerCase() !== 'coklit' ||
         String(existing.rt || '').trim() !== acc.rt;
@@ -1117,7 +1120,6 @@ function seedDatabase() {
     }
   });
 
-  // 7. Seed bilik default
   const booths = getRows_('booths');
   if (!booths.length) {
     ['Bilik 1', 'Bilik 2'].forEach(n => {
@@ -1126,12 +1128,12 @@ function seedDatabase() {
         name: n,
         status: 'ready',
         currentVoterId: '',
+        isAuthorized: false,
         updatedAt: new Date().toISOString(),
       });
     });
   }
 
-  // 8. Seed settings default
   const settings = getRows_('settings');
   const sDef = {
     event_name: 'Pemilihan Ketua RT & Pemuda',
@@ -1146,7 +1148,6 @@ function seedDatabase() {
     }
   });
 
-  // 9. Log ringkasan
   const finalUsers = getRows_('users');
   const summary = {
     users_total:  finalUsers.length,
@@ -1168,80 +1169,6 @@ function seedDatabase() {
   return { success: true, message: msg, summary };
 }
 
-/* ============================================================
- *  RE-INJECT COKLIT (jalankan manual kapan saja)
- *  Gunakan jika perlu reset password atau tambah RT baru
- *  ============================================================ */
-function reseedCoklit() {
-  const coklitAccounts = [
-    { username: 'coklit1', rt: '01', name: 'Petugas Coklit RT 01' },
-    { username: 'coklit2', rt: '02', name: 'Petugas Coklit RT 02' },
-    { username: 'coklit3', rt: '03', name: 'Petugas Coklit RT 03' },
-    { username: 'coklit4', rt: '04', name: 'Petugas Coklit RT 04' },
-    // Tambah di sini jika RT bertambah (RT 05, 06, dst)
-  ];
-
-  const users = getRows_('users');
-  let added = 0, updated = 0, skipped = 0;
-
-  coklitAccounts.forEach(acc => {
-    const existing = users.find(u => String(u.username) === acc.username);
-
-    if (!existing) {
-      saveRow_('users', {
-        username: acc.username,
-        password: 'coklit123',
-        name: acc.name,
-        role: 'coklit',
-        rt: acc.rt,
-        active: true,
-      });
-      added++;
-    } else if (
-      String(existing.rt || '').trim() !== acc.rt ||
-      String(existing.role || '').toLowerCase() !== 'coklit'
-    ) {
-      saveRow_('users', Object.assign({}, existing, {
-        role: 'coklit',
-        rt: acc.rt,
-      }));
-      updated++;
-    } else {
-      skipped++;
-    }
-  });
-
-  const msg = 'Coklit re-seed: ' + added + ' baru, ' + updated + ' diupdate, ' + skipped + ' sudah ada';
-  log_('-', 'reseed_coklit', 'added=' + added + ', updated=' + updated + ', skipped=' + skipped);
-  try { Logger.log(msg); } catch (_) {}
-  return { success: true, message: msg, data: { added, updated, skipped } };
-}
-
-/* ============================================================
- *  RESET PASSWORD COKLIT (jalankan manual jika perlu)
- *  Mengembalikan password semua akun coklit ke default 'coklit123'
- *  ============================================================ */
-function resetCoklitPassword() {
-  const users = getRows_('users').filter(u =>
-    String(u.role).toLowerCase() === 'coklit' &&
-    /^coklit\d+$/i.test(String(u.username))
-  );
-
-  let count = 0;
-  users.forEach(u => {
-    saveRow_('users', Object.assign({}, u, { password: 'coklit123' }));
-    count++;
-  });
-
-  const msg = 'Password ' + count + ' akun coklit di-reset ke default (coklit123)';
-  log_('-', 'reset_coklit_pwd', 'count=' + count);
-  try { Logger.log(msg); } catch (_) {}
-  return { success: true, message: msg, count };
-}
-
-/* ============================================================
- *  HEALTH CHECK (opsional, untuk debug)
- *  ============================================================ */
 function testHealth() {
   return JSON.stringify({
     ok: true,
