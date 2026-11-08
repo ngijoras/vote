@@ -1,6 +1,6 @@
 /* ============================================================
    E-VOTE • views-admin.js (FULL FIX - FINAL)
-   Role: ADMIN — Dashboard, Coklit, Kunci Bilik, Flyer Premium.
+   Role: ADMIN — Dashboard, Coklit, Kunci Bilik, Flyer, Shuffle.
    ============================================================ */
 window.ViewsAdmin = (function () {
   'use strict';
@@ -468,7 +468,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  3. CANDIDATES (dengan Tombol Flyer)
+   *  3. CANDIDATES (Tombol Flyer & Shuffle)
    * ============================================================ */
   async function candidates() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
@@ -478,12 +478,16 @@ window.ViewsAdmin = (function () {
       <div class="card">
         <div class="row-between">
           <div><h3>Data Calon</h3></div>
-          <button class="btn-primary btn-sm" id="btnAddCand">+ Tambah</button>
+          <div class="row" style="margin:0; gap:8px;">
+            <button class="btn-ghost btn-sm" id="btnShuffleCand" type="button" title="Acak Nomor Urut">🎲 Acak Nomor</button>
+            <button class="btn-primary btn-sm" id="btnAddCand">+ Tambah</button>
+          </div>
         </div>
         <div id="candList" style="margin-top:12px">${UI.skeleton(3)}</div>
       </div>
     `;
     document.getElementById('btnAddCand').onclick = () => editCandidate(null);
+    document.getElementById('btnShuffleCand').onclick = shuffleCandidates;
     await loadCandidates();
   }
 
@@ -497,6 +501,9 @@ window.ViewsAdmin = (function () {
       area.innerHTML = `<p class="hint">Belum ada calon.</p>`;
       return;
     }
+
+    // Urutkan berdasarkan noUrut
+    list.sort((a, b) => (Number(a.noUrut) || 0) - (Number(b.noUrut) || 0));
 
     area.innerHTML = `
       <div class="table-wrap">
@@ -521,6 +528,28 @@ window.ViewsAdmin = (function () {
           </tbody>
         </table>
       </div>`;
+  }
+
+  async function shuffleCandidates() {
+    const ok = await UI.confirm(
+      'Acak nomor urut calon? Nomor urut akan diacak ulang untuk semua posisi.',
+      { danger: true, okLabel: 'Ya, Acak' }
+    );
+    if (!ok) return;
+
+    try {
+      UI.loading(document.getElementById('view'), true);
+      const r = await API.post('candidates.shuffle');
+      if (!r.success) { UI.toast(r.message || 'Gagal mengacak', 'error'); return; }
+      
+      UI.toast(r.message, 'success');
+      if (window.Cache) Cache.clearAll();
+      loadCandidates();
+    } catch (err) {
+      UI.toast(err.message, 'error');
+    } finally {
+      UI.loading(document.getElementById('view'), false);
+    }
   }
 
   async function editCandidate(id) {
@@ -1876,6 +1905,45 @@ window.ViewsAdmin = (function () {
         <input class="input" id="sSigner" value="${esc(map.invitation_signer || '')}">
       </label>
 
+      <!-- ✅ JADWAL DINAMIS -->
+      <h4 style="margin-top:24px; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">Jadwal Tahapan Pemilihan</h4>
+      
+      <div class="grid-2">
+        <label class="field"><span>1. Pendaftaran Calon (Mulai)</span>
+          <input class="input" id="sJadwalDaftarMulai" type="date" value="${map.jadwal_daftar_mulai || ''}">
+        </label>
+        <label class="field"><span>1. Pendaftaran Calon (Selesai)</span>
+          <input class="input" id="sJadwalDaftarSelesai" type="date" value="${map.jadwal_daftar_selesai || ''}">
+        </label>
+      </div>
+
+      <div class="grid-2">
+        <label class="field"><span>2. Verifikasi (Mulai)</span>
+          <input class="input" id="sJadwalVerifMulai" type="date" value="${map.jadwal_verifikasi_mulai || ''}">
+        </label>
+        <label class="field"><span>2. Verifikasi (Selesai)</span>
+          <input class="input" id="sJadwalVerifSelesai" type="date" value="${map.jadwal_verifikasi_selesai || ''}">
+        </label>
+      </div>
+
+      <div class="grid-2">
+        <label class="field"><span>3. Kampanye (Mulai)</span>
+          <input class="input" id="sJadwalKampanyeMulai" type="date" value="${map.jadwal_kampanye_mulai || ''}">
+        </label>
+        <label class="field"><span>3. Kampanye (Selesai)</span>
+          <input class="input" id="sJadwalKampanyeSelesai" type="date" value="${map.jadwal_kampanye_selesai || ''}">
+        </label>
+      </div>
+
+      <div class="grid-2">
+        <label class="field"><span>4. Pemungutan Suara (Mulai)</span>
+          <input class="input" id="sJadwalPungutMulai" type="date" value="${map.jadwal_pungut_mulai || ''}">
+        </label>
+        <label class="field"><span>4. Pemungutan Suara (Selesai)</span>
+          <input class="input" id="sJadwalPungutSelesai" type="date" value="${map.jadwal_pungut_selesai || ''}">
+        </label>
+      </div>
+
       <label class="field"><span>Mode Posisi Ketua & Wakil</span>
         <select class="input" id="sVotingMode">
           <option value="single" ${map.voting_mode === 'single' ? 'selected' : ''}>Digabung (Pilih 1 Paslon)</option>
@@ -2028,6 +2096,16 @@ window.ViewsAdmin = (function () {
         election_date: (document.getElementById('sElectionDate') || {}).value || '',
         invitation_signer: (document.getElementById('sSigner') || {}).value || '',
         voting_mode: (document.getElementById('sVotingMode') || {}).value || 'single',
+        
+        // ✅ TAMBAHAN JADWAL
+        jadwal_daftar_mulai: (document.getElementById('sJadwalDaftarMulai') || {}).value || '',
+        jadwal_daftar_selesai: (document.getElementById('sJadwalDaftarSelesai') || {}).value || '',
+        jadwal_verifikasi_mulai: (document.getElementById('sJadwalVerifMulai') || {}).value || '',
+        jadwal_verifikasi_selesai: (document.getElementById('sJadwalVerifSelesai') || {}).value || '',
+        jadwal_kampanye_mulai: (document.getElementById('sJadwalKampanyeMulai') || {}).value || '',
+        jadwal_kampanye_selesai: (document.getElementById('sJadwalKampanyeSelesai') || {}).value || '',
+        jadwal_pungut_mulai: (document.getElementById('sJadwalPungutMulai') || {}).value || '',
+        jadwal_pungut_selesai: (document.getElementById('sJadwalPungutSelesai') || {}).value || '',
       };
 
       for (const key of Object.keys(updates)) {
@@ -2102,6 +2180,7 @@ window.ViewsAdmin = (function () {
                           : l.action === 'coklit'  ? 'info'
                           : l.action === 'login'   ? 'ok'
                           : l.action === 'booth_auth' ? 'info'
+                          : l.action === 'shuffle' ? 'warn'
                           : l.action === 'ERROR'   ? 'danger'
                           : 'info';
               return `
@@ -2124,7 +2203,7 @@ window.ViewsAdmin = (function () {
     dashboard, voters, candidates, booths, users,
     invitations, results, beritaAcara, settings, logs,
     editVoter, deleteVoter, resetVoter,
-    editCandidate, deleteCandidate, generateFlyer,
+    editCandidate, deleteCandidate, generateFlyer, shuffleCandidates,
     editBooth, freeBooth, deleteBooth, authorizeBooth,
     editUser, deleteUser,
     prevInvPage, nextInvPage,
