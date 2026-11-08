@@ -1,7 +1,7 @@
 /* ============================================================
    E-VOTE • views-petugas.js (FULL FIX - FINAL)
    Role: PETUGAS (asisten panitia)
-   Fitur: Preload, Auto-Sync, Kunci Bilik, Suara TTS.
+   Fitur: Preload, Auto-Sync, Kunci Bilik, Suara TTS, Undo TTD.
    ============================================================ */
 window.ViewsPetugas = (function () {
   'use strict';
@@ -141,7 +141,9 @@ window.ViewsPetugas = (function () {
         <h4>Tanda Tangan Digital</h4>
         <div id="sigPad"></div>
         <div class="row" style="margin-top:12px">
-          <button class="btn-ghost" id="btnCancelCheckin" type="button">↩ Batal</button>
+          <button class="btn-ghost" id="btnUndoCheckin" type="button">↩️ Undo</button>
+          <button class="btn-ghost" id="btnClearCheckin" type="button">🧹 Hapus</button>
+          <button class="btn-ghost" id="btnCancelCheckin" type="button" style="margin-left:auto">↩ Batal</button>
           <button class="btn-primary" id="btnSubmitCheckin" type="button">✅ Konfirmasi Kehadiran</button>
         </div>
       </div>
@@ -234,12 +236,28 @@ window.ViewsPetugas = (function () {
 
     const padHost = document.getElementById('sigPad');
     padHost.innerHTML = '';
-    try {
-      checkinState.pad = Sign.mount(padHost);
-    } catch (e) {
-      UI.toast('Gagal memuat pad tanda tangan', 'error');
-      checkinState.pad = null;
-    }
+    
+    // ✅ Inisialisasi TTD setelah DOM siap
+    setTimeout(() => {
+      try {
+        checkinState.pad = Sign.mount(padHost);
+        
+        // Bind tombol Undo & Clear secara eksplisit
+        document.getElementById('btnUndoCheckin').onclick = function(e) {
+          e.preventDefault();
+          if (checkinState.pad && checkinState.pad.undo) checkinState.pad.undo();
+        };
+        
+        document.getElementById('btnClearCheckin').onclick = function(e) {
+          e.preventDefault();
+          if (checkinState.pad && checkinState.pad.clear) checkinState.pad.clear();
+        };
+        
+      } catch (e) {
+        UI.toast('Gagal memuat pad tanda tangan', 'error');
+        checkinState.pad = null;
+      }
+    }, 50);
 
     document.getElementById('btnCancelCheckin').onclick = resetCheckin;
     document.getElementById('btnSubmitCheckin').onclick = submitCheckin;

@@ -1705,11 +1705,25 @@ window.ViewsAdmin = (function () {
       container.appendChild(row);
 
       const padHost = row.querySelector('.signerPad');
+      const btnUndo = row.querySelector('.btn-undo-pad');
+      const btnClear = row.querySelector('.btn-clear-pad');
+
+      // ✅ Inisialisasi Pad setelah DOM siap
       setTimeout(() => {
         if (window.Sign) {
           const pad = Sign.mount(padHost);
-          row.querySelector('.btn-undo-pad').onclick = () => pad.undo && pad.undo();
-          row.querySelector('.btn-clear-pad').onclick = () => pad.clear && pad.clear();
+          
+          // ✅ Bind event listener secara eksplisit agar tidak bentrok
+          btnUndo.onclick = function(e) {
+            e.preventDefault();
+            if (pad && pad.undo) pad.undo();
+          };
+          
+          btnClear.onclick = function(e) {
+            e.preventDefault();
+            if (pad && pad.clear) pad.clear();
+          };
+
           sigPads.push({ nameInput: row.querySelector('.signerName'), pad });
         }
       }, 50);
@@ -1914,9 +1928,20 @@ window.ViewsAdmin = (function () {
     }
 
     const btnClear = document.getElementById('btnSigClear');
-    if (btnClear) btnClear.onclick = () => sigPad && sigPad.clear();
+    if (btnClear) {
+      btnClear.onclick = function(e) {
+        e.preventDefault();
+        if (sigPad) sigPad.clear();
+      };
+    }
+    
     const btnUndo = document.getElementById('btnSigUndo');
-    if (btnUndo) btnUndo.onclick = () => sigPad && sigPad.undo && sigPad.undo();
+    if (btnUndo) {
+      btnUndo.onclick = function(e) {
+        e.preventDefault();
+        if (sigPad) sigPad.undo();
+      };
+    }
 
     const btnUpload = document.getElementById('btnSigUpload');
     const fileInput = document.getElementById('sigFileInput');

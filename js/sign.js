@@ -1,5 +1,5 @@
 /* ============================================================
-   E-VOTE • sign.js (FULL FIX - UNDO & CLEAR SUPPORT)
+   E-VOTE • sign.js (FULL FIX - FINAL + UNDO SUPPORT)
    DPR-aware canvas signature pad.
    Export: toDataURL() legacy | getBase64() JPEG DataURL
    ============================================================ */
@@ -124,7 +124,7 @@ window.Sign = (function () {
       if (destroyed) return;
       e.preventDefault();
       
-      // Simpan state ke history sebelum mulai menggambar baru
+      // ✅ Simpan state ke history SEBELUM mulai menggambar baru
       if (hasDraw) {
         try { history.push(canvas.toDataURL('image/png')); } catch (_) {}
       }
@@ -210,11 +210,15 @@ window.Sign = (function () {
         const rect = canvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
         
+        // Reset transformasi
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(dpr, dpr);
+        
+        // Bersihkan kanvas
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, rect.width, rect.height);
         
+        // Gambar ulang dari state sebelumnya
         if (prevState) {
           const img = new Image();
           img.onload = function () {
