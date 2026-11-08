@@ -1,7 +1,7 @@
 /* ============================================================
    E-VOTE • router.js (FULL FIX - FINAL)
    Hash-based SPA Router + Auth Guard + Role Guard + Cleanup.
-   Fitur: Instant Skeleton, Anti-Looping Offline, Preload Sync.
+   Fitur: Instant Skeleton, Anti-Looping, Preload Sync.
    ============================================================ */
 (function () {
   'use strict';
@@ -65,7 +65,7 @@
     petugas: [
       { path: 'petugas',              label: 'Dashboard',     icon: '📊' },
       { path: 'petugas/attendance',   label: 'Absensi',       icon: '📷' },
-      { path: 'petugas/queue',        label: 'Antrian',       icon: '🚪' },
+      { path: 'petugas/queue',        label: 'Antrian & Bilik', icon: '🚪' },
       { path: 'petugas/results',      label: 'Hasil',         icon: '📈' },
       { path: 'petugas/berita-acara', label: 'Berita Acara',  icon: '📜' },
     ],

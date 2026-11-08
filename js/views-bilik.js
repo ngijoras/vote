@@ -1,12 +1,13 @@
 /* ============================================================
-   E-VOTE • views-bilik.js (FULL FIX)
-   Role: BILIK
+   E-VOTE • views-bilik.js (FULL FIX - FINAL)
+   Role: BILIK (Antarmuka Bilik Suara)
+   Fitur: Kunci Bilik (Gatekeeper), Kontrol TTS, Anti Double-Vote.
    ============================================================ */
 window.ViewsBilik = (function () {
   'use strict';
 
-  const POLL_MS   = 2500;
-  const PING_MS   = 30000;
+  const POLL_MS   = 2500; // Cek status bilik tiap 2.5 detik
+  const PING_MS   = 30000; // Ping heartbeat ke server tiap 30 detik
   const CAM_MAX   = 320;
   const PHOTO_Q   = 0.7;
   
@@ -35,11 +36,12 @@ window.ViewsBilik = (function () {
 
   function user() { return API.user() || {}; }
   function view() { return document.getElementById('view'); }
-  function isTrue(v) { return v === true || String(v) === 'TRUE' || String(v) === 'true'; }
+  const isTrue = (v) => v === true || String(v) === 'TRUE' || String(v) === 'true';
   function esc(s) { return UI.escapeHtml(s); }
 
   function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
   function stopPing() { if (pingTimer) { clearInterval(pingTimer); pingTimer = null; } }
+  
   function stopCamera() {
     if (cameraStream) {
       try { cameraStream.getTracks().forEach(t => t.stop()); } catch (_) {}
@@ -48,6 +50,7 @@ window.ViewsBilik = (function () {
     const video = document.getElementById('camPreview');
     if (video) { try { video.srcObject = null; } catch (_) {} }
   }
+  
   function cleanup() {
     stopPoll();
     stopPing();
@@ -57,7 +60,9 @@ window.ViewsBilik = (function () {
     state = { booth: null, voter: null, candidates: [], photo: null, submitting: false, settings: {} };
   }
 
-  /* ENTRY */
+  /* ============================================================
+   *  ENTRY POINT
+   * ============================================================ */
   async function dashboard() {
     cleanup();
     const el = view();
@@ -70,7 +75,12 @@ window.ViewsBilik = (function () {
             <h3>Status Bilik</h3>
             <p class="hint" id="bilikStatusText">Memuat…</p>
           </div>
-          <span class="badge" id="bilikBadge">—</span>
+          <div class="row" style="margin:0;gap:8px;align-items:center">
+            <button class="btn-ghost btn-sm" type="button" onclick="Voice.toggle(); document.getElementById('bilikVoiceIcon').textContent = Voice.isEnabled() ? '🔊' : '🔇'">
+              <span id="bilikVoiceIcon">${window.Voice && Voice.isEnabled() ? '🔊' : '🔇'}</span> Suara
+            </button>
+            <span class="badge" id="bilikBadge">—</span>
+          </div>
         </div>
       </div>
 
@@ -130,9 +140,12 @@ window.ViewsBilik = (function () {
     }
   }
 
+  /* ============================================================
+   *  REFRESH STATUS (GATEKEEPER LOGIC)
+   * ============================================================ */
   async function refreshBooth() {
     if (loadingBooth || loadingVoter) return;
-    if (state.voter) return;
+    if (state.voter) return; // Jangan refresh jika sedang voting
 
     const me = user();
     if (!me.boothId) { renderNoBooth(); return; }
@@ -148,9 +161,18 @@ window.ViewsBilik = (function () {
       state.booth = booth;
       renderBoothStatus(booth);
 
+      // ✅ CEK IZIN (Hanya bisa voting jika di-authorize)
+      const isAuthorized = isTrue(booth.isAuthorized);
+      
+      if (!isAuthorized && !booth.currentVoterId) {
+        renderLocked();
+        return;
+      }
+
       if (booth.currentVoterId) {
         await loadActiveVoter(booth.currentVoterId);
       } else {
+        // Jika sudah di-authorize tapi kosong, tampilkan "Menunggu Pemilih"
         clearActiveVoter();
       }
     } catch (err) {
@@ -173,6 +195,7 @@ window.ViewsBilik = (function () {
       }
       const voter = r.data[0];
 
+      // Jika sudah voting, lepas dari bilik
       if (isTrue(voter.voted)) {
         try { await API.post('booth.setCurrent', { boothId: state.booth.id, voterId: '', name: state.booth.name || '' }); } catch (_) {}
         return;
@@ -182,6 +205,7 @@ window.ViewsBilik = (function () {
       state.photo = null;
       renderVoting();
 
+      // Jika kamera sudah aktif, ambil foto otomatis
       if (cameraStream) setTimeout(() => capturePhoto(true), 700);
     } catch (err) {
       console.warn('[bilik] loadActiveVoter error:', err);
@@ -203,7 +227,9 @@ window.ViewsBilik = (function () {
     renderWaiting();
   }
 
-  /* RENDER */
+  /* ============================================================
+   *  RENDER UI
+   * ============================================================ */
   function renderNoBooth() {
     const text = document.getElementById('bilikStatusText');
     const badge = document.getElementById('bilikBadge');
@@ -224,14 +250,17 @@ window.ViewsBilik = (function () {
     if (!text || !badge) return;
 
     const active = !!booth.currentVoterId;
-    text.textContent = `${booth.name || 'Bilik'} — ${active ? 'sedang dipakai' : 'siap menerima pemilih'}`;
-    badge.textContent = active ? 'Terisi' : 'Siap';
-    badge.className = 'badge ' + (active ? 'occupied' : 'ready');
+    const authorized = isTrue(booth.isAuthorized);
+
+    text.textContent = `${booth.name || 'Bilik'} — ${active ? 'sedang dipakai' : (authorized ? 'siap menerima pemilih' : 'terkunci')}`;
+    badge.textContent = active ? 'Terisi' : (authorized ? 'Siap' : 'Terkunci');
+    badge.className = 'badge ' + (active ? 'occupied' : (authorized ? 'ready' : 'danger'));
 
     const card = document.getElementById('bilikActiveCard');
     if (card) card.style.display = active ? 'block' : 'none';
   }
 
+  /* ✅ RENDER: Menunggu Pemilih (Bilik Terbuka) */
   function renderWaiting() {
     const voteArea = document.getElementById('voteArea');
     if (!voteArea) return;
@@ -240,6 +269,19 @@ window.ViewsBilik = (function () {
         <div style="font-size:2rem">🗳️</div>
         <h3 style="margin-top:8px">Menunggu Pemilih…</h3>
         <p class="hint">Pemilih akan diarahkan otomatis oleh petugas.</p>
+      </div>`;
+  }
+
+  /* ✅ RENDER: Terkunci (Belum Ada Komando) */
+  function renderLocked() {
+    const voteArea = document.getElementById('voteArea');
+    if (!voteArea) return;
+    voteArea.innerHTML = `
+      <div class="card text-center" style="padding:60px 20px; background:#f8fafc; border:2px dashed #cbd5e1;">
+        <div style="font-size:4rem; margin-bottom:16px;">🔒</div>
+        <h3 style="color:var(--err);">BILIK TERKUNCI</h3>
+        <p class="hint">Menunggu perintah <strong>Buka Bilik</strong> dari Petugas / Admin.</p>
+        <small style="color:var(--muted); display:block; margin-top:20px;">Auto-refresh aktif...</small>
       </div>`;
   }
 
@@ -297,7 +339,9 @@ window.ViewsBilik = (function () {
     if (btnSubmit) btnSubmit.onclick = () => submitVote(false);
   }
 
-  /* CAMERA */
+  /* ============================================================
+   *  CAMERA
+   * ============================================================ */
   async function startCamera() {
     if (cameraStream) { UI.toast('Kamera sudah aktif', 'info'); return; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -340,7 +384,9 @@ window.ViewsBilik = (function () {
     }
   }
 
-  /* SUBMIT */
+  /* ============================================================
+   *  SUBMIT VOTE (AUTO-LOCK)
+   * ============================================================ */
   async function submitVote(blank) {
     if (state.submitting) return;
 
@@ -419,6 +465,7 @@ window.ViewsBilik = (function () {
           </div>`;
       }
 
+      // Refresh akan mendeteksi bilik sudah terkunci kembali
       refreshBooth();
     } catch (err) {
       UI.toast('Koneksi bermasalah: ' + (err.message || err), 'error');
@@ -431,7 +478,9 @@ window.ViewsBilik = (function () {
     }
   }
 
-  /* EXPORTS */
+  /* ============================================================
+   *  EXPORTS
+   * ============================================================ */
   return {
     dashboard,
     startCamera,

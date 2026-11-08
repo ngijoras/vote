@@ -1,7 +1,7 @@
 /* ============================================================
    E-VOTE • views-petugas.js (FULL FIX - FINAL)
    Role: PETUGAS (asisten panitia)
-   Menu: Dashboard • Absensi (scan) • Antrian & Bilik
+   Fitur: Scan QR, Absensi TTD, Kunci Bilik, Suara TTS.
    ============================================================ */
 window.ViewsPetugas = (function () {
   'use strict';
@@ -34,7 +34,7 @@ window.ViewsPetugas = (function () {
   function safeQRStop() { try { if (window.QR && QR.stop) QR.stop(); } catch (_) {} }
 
   /* ============================================================
-   *  DASHBOARD PETUGAS
+   *  1. DASHBOARD PETUGAS
    * ============================================================ */
   async function dashboard() {
     clearAllPolls();
@@ -89,7 +89,7 @@ window.ViewsPetugas = (function () {
   }
 
   /* ============================================================
-   *  ABSENSI (SCAN QR + TTD + CHECK-IN)
+   *  2. ABSENSI (SCAN QR + TTD + SUARA)
    * ============================================================ */
   async function attendance() {
     clearAllPolls();
@@ -257,7 +257,7 @@ window.ViewsPetugas = (function () {
       return;
     }
 
-    // --- SUARA OTOMATIS ---
+    // ✅ SUARA OTOMATIS (TTS)
     const boothName = r.voter.booth || null;
     const voterName = r.voter.name;
     
@@ -315,7 +315,7 @@ window.ViewsPetugas = (function () {
   }
 
   /* ============================================================
-   *  ANTRIAN & BILIK (REAL-TIME INDICATOR)
+   *  3. ANTRIAN & BILIK (KUNCI BILIK & SUARA)
    * ============================================================ */
   async function queue() {
     clearAllPolls(); safeQRStop();
@@ -326,7 +326,12 @@ window.ViewsPetugas = (function () {
         <div class="card">
           <div class="row-between">
             <h3>Status Bilik</h3>
-            <span class="hint" id="queueTime">—</span>
+            <div class="row" style="margin:0;gap:8px;align-items:center">
+              <button class="btn-ghost btn-sm" type="button" onclick="Voice.toggle(); document.getElementById('voiceIcon').textContent = Voice.isEnabled() ? '🔊' : '🔇'">
+                <span id="voiceIcon">${window.Voice && Voice.isEnabled() ? '🔊' : '🔇'}</span> Suara
+              </button>
+              <span class="hint" id="queueTime">—</span>
+            </div>
           </div>
           <div id="boothList" style="margin-top:12px">${UI.skeleton(3)}</div>
         </div>
@@ -383,26 +388,26 @@ window.ViewsPetugas = (function () {
       } else {
         bList.innerHTML = boothsCache.map(b => {
           const active = !!b.currentVoterId;
-          // Cek apakah bilik sedang online (ping dalam 90 detik terakhir)
+          const authorized = isTrue(b.isAuthorized); // ✅ Cek Kunci
           const isOnline = b.lastActive && (Date.now() - b.lastActive < 90000);
           
-          let statusText = isOnline ? (active ? 'Sedang Memilih' : 'Siap Menerima') : 'Offline';
-          let statusClass = isOnline ? (active ? 'warn' : 'ok') : 'danger';
+          let statusText = isOnline ? (active ? 'Sedang Memilih' : (authorized ? 'Siap Menerima' : 'Terkunci')) : 'Offline';
+          let statusClass = isOnline ? (active ? 'warn' : (authorized ? 'ok' : 'danger')) : 'danger';
           let dotClass = isOnline ? 'online' : 'offline';
-          let rowClass = isOnline ? (active ? 'occupied' : 'ready') : '';
-          
-          const canCall = isOnline && !active && waitingCache.length > 0;
+          let rowClass = isOnline ? (active ? 'occupied' : (authorized ? 'ready' : '')) : '';
 
           return `
             <div class="booth-row ${rowClass}" style="${!isOnline ? 'opacity:0.6;' : ''}">
-              <span class="dot-indicator ${dotClass}" title="${isOnline ? 'Terhubung' : 'Belum Login'}"></span>
+              <span class="dot-indicator ${dotClass}"></span>
               <strong>${esc(b.name)}</strong>
               <span class="badge ${statusClass}">${statusText}</span>
               
               <div class="row" style="margin:0;margin-left:auto;gap:4px">
-                ${canCall
-                  ? `<button class="btn-primary btn-sm" type="button"
-                        onclick="ViewsPetugas.callNext('${esc(b.id)}')">📢 Panggil</button>`
+                ${isOnline && !active
+                  ? `<button class="btn-ghost btn-sm" type="button"
+                        onclick="ViewsPetugas.authorizeBooth('${esc(b.id)}', ${!authorized})">
+                        ${authorized ? '🔒 Kunci' : '🔓 Buka'}
+                     </button>`
                   : ''}
                 ${active
                   ? `<button class="btn-ghost btn-sm" type="button"
@@ -429,27 +434,16 @@ window.ViewsPetugas = (function () {
     }
   }
 
-  async function callNext(boothId) {
-    if (!waitingCache.length) {
-      UI.toast('Tidak ada pemilih menunggu', 'warn');
-      return;
-    }
-    const next  = waitingCache[0];
-    const booth = boothsCache.find(b => String(b.id) === String(boothId));
-    if (!booth) { UI.toast('Bilik tidak ditemukan', 'error'); return; }
-    if (booth.currentVoterId) { UI.toast('Bilik sedang terisi', 'warn'); return; }
-
-    const r = await API.post('booth.setCurrent', {
-      boothId,
-      voterId: next.id,
-      voterName: next.name,
-      name: booth.name,
-    });
-    if (!r.success) { UI.toast(r.message || 'Gagal', 'error'); return; }
-
-    try { Voice.speak(`Pemilih ${next.name}, silakan menuju ${booth.name}.`); } catch (_) {}
-    UI.toast(`${next.name} → ${booth.name}`, 'success');
-    await refreshQueue();
+  /* ✅ FITUR KUNCI BILIK */
+  async function authorizeBooth(boothId, status) {
+    try {
+      const r = await API.post('booth.authorize', { boothId, isAuthorized: status });
+      if (!r.success) { UI.toast(r.message || 'Gagal', 'error'); return; }
+      
+      UI.toast(status ? 'Bilik dibuka! Menunggu pemilih...' : 'Bilik dikunci.', 'success');
+      if (window.Cache) Cache.clearAll();
+      await refreshQueue();
+    } catch (err) { UI.toast(err.message, 'error'); }
   }
 
   async function freeBooth(boothId) {
@@ -466,9 +460,10 @@ window.ViewsPetugas = (function () {
       UI.toast('Tidak ada pemilih menunggu', 'warn');
       return;
     }
-    const freeBooths = boothsCache.filter(b => !b.currentVoterId);
+    // Hanya pilih bilik yang kosong DAN sudah dibuka (isAuthorized = true)
+    const freeBooths = boothsCache.filter(b => !b.currentVoterId && isTrue(b.isAuthorized));
     if (!freeBooths.length) {
-      UI.toast('Tidak ada bilik kosong', 'warn');
+      UI.toast('Tidak ada bilik kosong yang terbuka. Buka bilik terlebih dahulu.', 'warn');
       return;
     }
 
@@ -501,7 +496,7 @@ window.ViewsPetugas = (function () {
     attendance,
     queue,
     refreshQueue,
-    callNext,
+    authorizeBooth,
     freeBooth,
     autoAssignAll,
     _clearAllPolls: clearAllPolls,

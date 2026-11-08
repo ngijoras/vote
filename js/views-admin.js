@@ -1,6 +1,6 @@
 /* ============================================================
    E-VOTE • views-admin.js (FULL FIX - FINAL)
-   Role: ADMIN — Preload Cache + Sinkron Coklit per RT.
+   Role: ADMIN — Kontrol Penuh Sistem, Coklit, & Kunci Bilik.
    ============================================================ */
 window.ViewsAdmin = (function () {
   'use strict';
@@ -264,7 +264,7 @@ window.ViewsAdmin = (function () {
     const filterRt = document.getElementById('voterFilterRt');
     const filterCoklit = document.getElementById('voterFilterCoklit');
 
-    /* Populate RT dropdown (sekali saja, persist selection) */
+    /* Populate RT dropdown */
     if (filterRt && filterRt.options.length <= 1) {
       const rts = [...new Set(list.map(v => String(v.rt || '').trim()))]
         .filter(rt => rt !== '')
@@ -660,7 +660,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  4. BOOTHS
+   *  4. BOOTHS — Kontrol Kunci Bilik
    * ============================================================ */
   async function booths() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
@@ -692,16 +692,25 @@ window.ViewsAdmin = (function () {
     area.innerHTML = list.map(b => {
       const isOnline = b.lastActive && (Date.now() - b.lastActive < 90000);
       const active = !!b.currentVoterId;
-      let statusText = isOnline ? (active ? 'Sedang Memilih' : 'Siap Menerima') : 'Offline';
-      let statusClass = isOnline ? (active ? 'warn' : 'ok') : 'danger';
+      const authorized = isTrue(b.isAuthorized);
+      
+      let statusText = isOnline ? (active ? 'Sedang Memilih' : (authorized ? 'Siap Menerima' : 'Terkunci')) : 'Offline';
+      let statusClass = isOnline ? (active ? 'warn' : (authorized ? 'ok' : 'danger')) : 'danger';
       let dotClass = isOnline ? 'online' : 'offline';
 
       return `
-        <div class="booth-row ${isOnline ? (active ? 'occupied' : 'ready') : ''}">
+        <div class="booth-row ${isOnline ? (active ? 'occupied' : (authorized ? 'ready' : '')) : ''}">
           <span class="dot-indicator ${dotClass}"></span>
           <strong>${esc(b.name)}</strong>
           <span class="badge ${statusClass}">${statusText}</span>
+          
           <div class="row" style="margin:0;margin-left:auto;gap:4px">
+            ${isOnline && !active
+              ? `<button class="btn-ghost btn-sm" type="button"
+                    onclick="ViewsAdmin.authorizeBooth('${esc(b.id)}', ${!authorized})">
+                    ${authorized ? '🔒 Kunci' : '🔓 Buka'}
+                 </button>`
+              : ''}
             <button class="btn-ghost btn-sm" onclick="ViewsAdmin.editBooth('${esc(b.id)}')">✏️</button>
             ${active
               ? `<button class="btn-ghost btn-sm" onclick="ViewsAdmin.freeBooth('${esc(b.id)}')">Kosongkan</button>`
@@ -710,6 +719,18 @@ window.ViewsAdmin = (function () {
           </div>
         </div>`;
     }).join('');
+  }
+
+  /* ✅ FITUR BARU: Admin Buka/Tutup Bilik */
+  async function authorizeBooth(boothId, status) {
+    try {
+      const r = await API.post('booth.authorize', { boothId, isAuthorized: status });
+      if (!r.success) { UI.toast(r.message || 'Gagal', 'error'); return; }
+      
+      UI.toast(status ? 'Bilik dibuka!' : 'Bilik dikunci!', 'success');
+      if (window.Cache) Cache.clearAll();
+      loadBooths();
+    } catch (err) { UI.toast(err.message, 'error'); }
   }
 
   async function editBooth(id) {
@@ -768,7 +789,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  5. USERS (dengan role COKLIT)
+   *  5. USERS
    * ============================================================ */
   async function users() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
@@ -1824,6 +1845,7 @@ window.ViewsAdmin = (function () {
                           : l.action === 'checkin' ? 'ok'
                           : l.action === 'coklit'  ? 'info'
                           : l.action === 'login'   ? 'ok'
+                          : l.action === 'booth_auth' ? 'info'
                           : l.action === 'ERROR'   ? 'danger'
                           : 'info';
               return `
@@ -1847,7 +1869,7 @@ window.ViewsAdmin = (function () {
     invitations, results, beritaAcara, settings, logs,
     editVoter, deleteVoter, resetVoter,
     editCandidate, deleteCandidate,
-    editBooth, freeBooth, deleteBooth,
+    editBooth, freeBooth, deleteBooth, authorizeBooth,
     editUser, deleteUser,
     prevInvPage, nextInvPage,
     printBa,
