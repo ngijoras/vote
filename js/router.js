@@ -1,63 +1,36 @@
 /* ============================================================
-   E-VOTE • router.js (FULL FIX)
+   E-VOTE • router.js (FULL FIX - FINAL)
    Hash-based SPA Router + Auth Guard + Role Guard + Cleanup.
-   - Gunakan SafeStorage (fallback memory mode)
-   - Verify token server-side, tidak loop redirect
-   - Cleanup anti memory-leak (poll, camera, voice, QR, clock)
-   - Guard error per-route agar 1 view crash tidak matikan app
-   - Navigate idempotent (tidak double-render saat hashchange dobel)
    ============================================================ */
 (function () {
   'use strict';
 
   /* ============================================================
-   *  0. STORAGE RESOLVER
+   *  1. AUTH GUARD (Mencegah akses tanpa login)
    * ============================================================ */
-  const Store = window.SafeStorage || window.localStorage;
-
-  function safeGet(k) {
-    try { return Store.getItem(k); } catch (_) { return null; }
-  }
-  function safeDel(k) {
-    try { Store.removeItem(k); } catch (_) {}
-  }
-
-  /* ============================================================
-   *  1. AUTH GUARD
-   * ============================================================ */
-  const token   = safeGet('evote_token');
-  const userRaw = safeGet('evote_user');
+  const token   = localStorage.getItem('evote_token');
+  const userRaw = localStorage.getItem('evote_user');
 
   let u = null;
-  try { u = userRaw ? JSON.parse(userRaw) : null; } catch (_) { u = null; }
+  try { u = JSON.parse(userRaw); } catch (_) { u = null; }
 
+  // Jika tidak ada sesi, tendang ke login.html
   if (!token || !u || !u.role) {
     location.replace('login.html');
     return;
   }
 
-  /* ---------- Verify token server-side (silent, satu kali) ---------- */
-  let verified = false;
+  /* ---------- Verify token server-side (silent) ---------- */
   (function verifyToken() {
-    if (!window.API || typeof API.post !== 'function') {
-      verified = true; // fallback: anggap OK bila API belum siap
-      return;
-    }
-    API.post('me')
-      .then((r) => {
-        verified = true;
-        if (!r || !r.success) {
-          safeDel('evote_token');
-          safeDel('evote_user');
-          safeDel('evote_exp');
-          if (window.Cache && Cache.clearAll) Cache.clearAll();
-          location.replace('login.html');
-        }
-      })
-      .catch(() => {
-        // network error → biarkan sesi lokal tetap valid
-        verified = true;
-      });
+    if (!window.API || typeof API.post !== 'function') return;
+    API.post('me').then((r) => {
+      if (!r || !r.success) {
+        localStorage.removeItem('evote_token');
+        localStorage.removeItem('evote_user');
+        if (window.Cache) Cache.clearAll();
+        location.replace('login.html');
+      }
+    }).catch(() => { /* offline → biarkan */ });
   })();
 
   /* ============================================================
@@ -73,6 +46,7 @@
       { path: 'admin/invitations',  label: 'Undangan',     icon: '✉️' },
       { path: 'admin/results',      label: 'Hasil',        icon: '📈' },
       { path: 'admin/berita-acara', label: 'Berita Acara', icon: '📜' },
+      { path: 'admin/logs',         label: 'Log Aktivitas',icon: '📝' }, // Menu Baru
       { path: 'admin/settings',     label: 'Pengaturan',   icon: '⚙️' },
     ],
     petugas: [
@@ -97,6 +71,7 @@
     'admin/invitations':   { title: 'Undangan Pemilih', roles: ['admin'],            fn: () => ViewsAdmin.invitations() },
     'admin/results':       { title: 'Hasil Real-Time',  roles: ['admin', 'petugas'], fn: () => ViewsAdmin.results() },
     'admin/berita-acara':  { title: 'Berita Acara',     roles: ['admin', 'petugas'], fn: () => ViewsAdmin.beritaAcara() },
+    'admin/logs':          { title: 'Log Aktivitas',    roles: ['admin'],            fn: () => ViewsAdmin.logs() }, // Route Baru
     'admin/settings':      { title: 'Pengaturan Sistem',roles: ['admin'],            fn: () => ViewsAdmin.settings() },
 
     /* ---------- PETUGAS ---------- */
@@ -117,7 +92,7 @@
   };
 
   /* ============================================================
-   *  3. CLEANUP (dipanggil sebelum setiap route switch)
+   *  3. CLEANUP (Mencegah Memory Leak)
    * ============================================================ */
   function cleanup() {
     try { if (window.ViewsAdmin   && ViewsAdmin._clearAllPolls)   ViewsAdmin._clearAllPolls();   } catch (_) {}
@@ -195,37 +170,28 @@
   }
 
   /* ============================================================
-   *  6. CLOCK (auto-cleanup)
+   *  6. CLOCK
    * ============================================================ */
   let clockTimer = null;
 
   function startClock() {
     const el = document.getElementById('clock');
     if (!el) return;
-    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+    if (clockTimer) clearInterval(clockTimer);
 
     const tick = () => {
-      try {
-        const d = new Date();
-        const day  = d.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short' });
-        const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        el.textContent = `${day} • ${time}`;
-      } catch (_) {}
+      const d = new Date();
+      const day  = d.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short' });
+      const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      el.textContent = `${day} • ${time}`;
     };
     tick();
     clockTimer = setInterval(tick, 1000);
   }
 
-  function stopClock() {
-    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
-  }
-
   /* ============================================================
-   *  7. NAVIGATE (idempotent)
+   *  7. NAVIGATE
    * ============================================================ */
-  let navigating = false;
-  let pendingPath = null;
-
   function parsePath() {
     const raw = (location.hash || '').replace(/^#\/?/, '').trim();
     return raw;
@@ -236,77 +202,64 @@
   }
 
   async function navigate() {
-    // Idempotent: jika sedang navigasi, simpan request terakhir
-    if (navigating) { pendingPath = parsePath(); return; }
-    navigating = true;
+    const path  = parsePath();
+    const view  = document.getElementById('view');
+    const title = document.getElementById('pageTitle');
+
+    if (!path) {
+      location.replace('#/' + defaultPath());
+      return;
+    }
+
+    const route = ROUTES[path];
+
+    if (!route) {
+      if (title) title.textContent = 'Tidak Ditemukan';
+      if (view) {
+        view.innerHTML = `
+          <div class="card text-center" style="padding:40px">
+            <h1 style="font-size:3rem;margin:0">404</h1>
+            <h3 style="margin-top:8px">Halaman Tidak Ditemukan</h3>
+            <p class="hint">Route "${UI.escapeHtml(path)}" tidak tersedia.</p>
+            <a href="#/${defaultPath()}" class="btn-primary" style="margin-top:16px">
+              Kembali ke Dashboard
+            </a>
+          </div>`;
+      }
+      updateActive('');
+      return;
+    }
+
+    if (route.roles && route.roles.indexOf(u.role) === -1) {
+      UI.toast('Anda tidak memiliki akses ke halaman ini', 'error');
+      location.replace('#/' + defaultPath());
+      return;
+    }
+
+    // Bersihkan sisa memori dari halaman sebelumnya
+    cleanup();
+    closeSidebar();
+
+    if (title) title.textContent = route.title;
+    document.title = `${route.title} • E-Vote`;
+    updateActive(path);
+
+    try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }
+    catch (_) { window.scrollTo(0, 0); }
 
     try {
-      const path  = parsePath();
-      const view  = document.getElementById('view');
-      const title = document.getElementById('pageTitle');
-
-      if (!path) {
-        location.replace('#/' + defaultPath());
-        return;
-      }
-
-      const route = ROUTES[path];
-
-      if (!route) {
-        if (title) title.textContent = 'Tidak Ditemukan';
-        if (view) {
-          view.innerHTML = `
-            <div class="card text-center" style="padding:40px">
-              <h1 style="font-size:3rem;margin:0">404</h1>
-              <h3 style="margin-top:8px">Halaman Tidak Ditemukan</h3>
-              <p class="hint">Route "${UI.escapeHtml(path)}" tidak tersedia.</p>
-              <a href="#/${defaultPath()}" class="btn-primary" style="margin-top:16px">
-                Kembali ke Dashboard
-              </a>
-            </div>`;
-        }
-        updateActive('');
-        return;
-      }
-
-      if (route.roles && route.roles.indexOf(u.role) === -1) {
-        UI.toast('Anda tidak memiliki akses ke halaman ini', 'error');
-        location.replace('#/' + defaultPath());
-        return;
-      }
-
-      // Cleanup sebelum pindah
-      cleanup();
-      closeSidebar();
-
-      if (title) title.textContent = route.title;
-      document.title = `${route.title} • E-Vote`;
-      updateActive(path);
-
-      try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }
-      catch (_) { window.scrollTo(0, 0); }
-
-      try {
-        await route.fn();
-      } catch (err) {
-        console.error('[router] view error:', err);
-        if (view) {
-          view.innerHTML = `
-            <div class="card">
-              <h3 style="color:var(--err)">Terjadi Kesalahan</h3>
-              <p class="hint">${UI.escapeHtml(err && err.message ? err.message : String(err))}</p>
-              <button class="btn-primary" type="button" onclick="location.reload()">
-                Muat Ulang Halaman
-              </button>
-            </div>`;
-        }
-      }
-    } finally {
-      navigating = false;
-      // Jika ada request navigasi baru saat kita masih proses, jalankan sekali lagi
-      if (pendingPath !== null) {
-        pendingPath = null;
-        setTimeout(navigate, 0);
+      await route.fn();
+    } catch (err) {
+      console.error('[router] view error:', err);
+      if (view) {
+        view.innerHTML = `
+          <div class="card">
+            <h3 style="color:var(--err)">Terjadi Kesalahan</h3>
+            <p class="hint">${UI.escapeHtml(err && err.message ? err.message : String(err))}</p>
+            <button class="btn-primary" type="button" onclick="location.reload()">
+              Muat Ulang Halaman
+            </button>
+          </div>`;
       }
     }
   }
@@ -327,15 +280,11 @@
 
     /* Menu toggle (mobile) */
     const btnMenu = document.getElementById('btnMenu');
-    if (btnMenu && !btnMenu.dataset.bound) {
-      btnMenu.dataset.bound = '1';
-      btnMenu.addEventListener('click', toggleSidebar);
-    }
+    if (btnMenu) btnMenu.addEventListener('click', toggleSidebar);
 
     /* Auto-close sidebar */
     const nav = document.getElementById('nav');
-    if (nav && !nav.dataset.bound) {
-      nav.dataset.bound = '1';
+    if (nav) {
       nav.addEventListener('click', (e) => {
         if (e.target.closest('.nav-item')) closeSidebar();
       });
@@ -347,54 +296,40 @@
       btn.dataset.bound = '1';
 
       btn.addEventListener('click', async () => {
-        let ok = true;
         if (window.UI && UI.confirm) {
-          ok = await UI.confirm('Keluar dari aplikasi?', { okLabel: 'Ya, Keluar' });
+          const ok = await UI.confirm('Keluar dari aplikasi?', { okLabel: 'Ya, Keluar' });
+          if (ok) API.logout();
         } else {
-          ok = window.confirm('Keluar dari aplikasi?');
+          if (confirm('Keluar dari aplikasi?')) API.logout();
         }
-        if (!ok) return;
-
-        cleanup();
-        stopClock();
-        if (window.API && API.logout) API.logout();
       });
     });
 
-    /* TOMBOL GLOBAL REFRESH */
+    /* Tombol Global Refresh */
     const btnRefresh = document.getElementById('btnGlobalRefresh');
-    if (btnRefresh && !btnRefresh.dataset.bound) {
-      btnRefresh.dataset.bound = '1';
+    if (btnRefresh) {
       btnRefresh.addEventListener('click', async () => {
         btnRefresh.classList.add('loading');
         btnRefresh.disabled = true;
-        try {
-          if (window.Cache) Cache.clearAll();
-          await navigate();
-          if (window.UI) UI.toast('Data berhasil diperbarui', 'success');
-        } catch (err) {
-          if (window.UI) UI.toast('Gagal refresh: ' + err.message, 'error');
-        } finally {
-          btnRefresh.classList.remove('loading');
-          btnRefresh.disabled = false;
-        }
+        
+        if (window.Cache) Cache.clearAll();
+        await navigate();
+        
+        btnRefresh.classList.remove('loading');
+        btnRefresh.disabled = false;
+        if (window.UI) UI.toast('Data berhasil diperbarui', 'success');
       });
     }
 
-    /* PRELOAD DATA DI BACKGROUND (hanya sekali) */
-    if (window.Cache && Cache.preloadAll && !window.__evotePreloaded) {
-      window.__evotePreloaded = true;
+    /* PRELOAD DATA DI BACKGROUND */
+    if (window.Cache && Cache.preloadAll) {
       Cache.preloadAll();
     }
 
     /* Clock & Routing */
     startClock();
     window.addEventListener('hashchange', navigate);
-
-    window.addEventListener('beforeunload', () => {
-      cleanup();
-      stopClock();
-    });
+    window.addEventListener('beforeunload', () => { cleanup(); });
 
     navigate();
   }

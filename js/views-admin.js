@@ -1,5 +1,5 @@
 /* ============================================================
-   E-VOTE • views-admin.js (FULL FIX)
+   E-VOTE • views-admin.js (FULL FIX - FINAL)
    Role: ADMIN
    ============================================================ */
 window.ViewsAdmin = (function () {
@@ -33,7 +33,9 @@ window.ViewsAdmin = (function () {
   function cleanupSignPad() { try { if (sigPad && sigPad.destroy) sigPad.destroy(); } catch (_) {} sigPad = null; }
   function safeQRStop() { try { if (window.QR && QR.stop) QR.stop(); } catch (_) {} }
 
-  /* DASHBOARD */
+  /* ============================================================
+   *  1. DASHBOARD
+   * ============================================================ */
   async function dashboard() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
     const el = view(); if (!el) return;
@@ -71,7 +73,9 @@ window.ViewsAdmin = (function () {
     `;
   }
 
-  /* VOTERS */
+  /* ============================================================
+   *  2. VOTERS (Data Pemilih + Filter RT + Reset)
+   * ============================================================ */
   async function voters() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
     const el = view(); if (!el) return;
@@ -147,6 +151,7 @@ window.ViewsAdmin = (function () {
                 <td>${esc(v.rt || '-')}/${esc(v.rw || '-')}</td>
                 <td>${isTrue(v.voted) ? '<span class="badge ok">Memilih</span>' : v.checkinAt ? '<span class="badge warn">Absen</span>' : '<span class="badge">Belum</span>'}</td>
                 <td style="white-space:nowrap;">
+                  ${isTrue(v.voted) || v.checkinAt ? `<button class="btn-ghost btn-sm" type="button" onclick="ViewsAdmin.resetVoter('${esc(v.id)}')" title="Reset Status">🔄 Reset</button>` : ''}
                   <button class="btn-ghost btn-sm" type="button" onclick="ViewsAdmin.editVoter('${esc(v.id)}')">✏️ Edit</button>
                   <button class="btn-danger btn-sm" type="button" onclick="ViewsAdmin.deleteVoter('${esc(v.id)}')">🗑️</button>
                 </td>
@@ -186,7 +191,28 @@ window.ViewsAdmin = (function () {
     if (r.success) { UI.toast('Terhapus', 'success'); if (window.Cache) Cache.clearAll(); loadVoters(); }
   }
 
-  /* CANDIDATES */
+  async function resetVoter(id) {
+    const ok = await UI.confirm('Reset pemilih ini? Semua suara akan dihapus dan status kembali menjadi Belum Memilih.', { danger: true, okLabel: 'Ya, Reset' });
+    if (!ok) return;
+    
+    try {
+      UI.loading(document.getElementById('view'), true);
+      const r = await API.post('voters.reset', { id });
+      if (!r.success) { UI.toast(r.message || 'Gagal reset', 'error'); return; }
+      
+      UI.toast('Pemilih berhasil di-reset', 'success');
+      if (window.Cache) Cache.clearAll();
+      loadVoters();
+    } catch (err) {
+      UI.toast(err.message, 'error');
+    } finally {
+      UI.loading(document.getElementById('view'), false);
+    }
+  }
+
+  /* ============================================================
+   *  3. CANDIDATES (Data Calon + Upload Foto)
+   * ============================================================ */
   async function candidates() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
     const el = view(); if (!el) return;
@@ -342,7 +368,9 @@ window.ViewsAdmin = (function () {
     if (r.success) { UI.toast('Terhapus', 'success'); if (window.Cache) Cache.clearAll(); loadCandidates(); }
   }
 
-  /* BOOTHS */
+  /* ============================================================
+   *  4. BOOTHS (Manajemen Bilik)
+   * ============================================================ */
   async function booths() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
     const el = view(); if (!el) return;
@@ -422,7 +450,9 @@ window.ViewsAdmin = (function () {
     } catch (err) { UI.toast(err.message, 'error'); }
   }
 
-  /* USERS */
+  /* ============================================================
+   *  5. USERS (Pengguna Sistem)
+   * ============================================================ */
   async function users() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
     const el = view(); if (!el) return;
@@ -510,7 +540,9 @@ window.ViewsAdmin = (function () {
     if (r.success) { UI.toast('Terhapus', 'success'); if (window.Cache) Cache.clearAll(); loadUsers(); }
   }
 
-  /* INVITATIONS */
+  /* ============================================================
+   *  6. INVITATIONS (Undangan Pemilih)
+   * ============================================================ */
   let invState = { page: 1, limit: 10, total: 0, allData: [] };
 
   async function invitations() {
@@ -761,7 +793,9 @@ window.ViewsAdmin = (function () {
   function prevInvPage() { if (invState.page > 1) { invState.page--; loadInvitations(); window.scrollTo(0, 0); } }
   function nextInvPage() { const total = Math.ceil(invState.total / invState.limit) || 1; if (invState.page < total) { invState.page++; loadInvitations(); window.scrollTo(0, 0); } }
 
-  /* RESULTS */
+  /* ============================================================
+   *  7. RESULTS (Hasil Real-Time + Grafik)
+   * ============================================================ */
   async function results() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
     const el = view(); if (!el) return;
@@ -780,30 +814,72 @@ window.ViewsAdmin = (function () {
     const totalVoters = r.totalVoters || 0;
     const LABELS = { ketua_rt: 'Ketua RT', ketua_pemuda: 'Ketua Pemuda', wakil_pemuda: 'Wakil Ketua Pemuda', ketua_wakil_pemuda: 'Ketua & Wakil Pemuda' };
 
+    const COLORS = ['#2563eb', '#8b5cf6', '#16a34a', '#f59e0b', '#dc2626', '#0ea5e9'];
+
     area.innerHTML = `
       <div class="grid-3">
         <div class="stat"><small>Total Pemilih</small><h3>${totalVoters}</h3></div>
         <div class="stat"><small>Sudah Memilih</small><h3>${totalVoted}</h3></div>
         <div class="stat"><small>Partisipasi</small><h3>${UI.formatPercent(totalVoted, totalVoters || 1)}</h3></div>
       </div>
+
       <div class="card">
-        <div class="row-between"><h3>Hasil Perolehan Suara</h3><span class="hint">${UI.formatTime(new Date())}</span></div>
+        <div class="row-between"><h3>Grafik Perolehan Suara</h3><span class="hint">${UI.formatTime(new Date())}</span></div>
+        
         ${Object.keys(groups).length === 0 ? `<p class="hint" style="margin-top:12px">Belum ada data.</p>` : Object.keys(groups).map(pos => {
-          const items = groups[pos]; const total = items.reduce((s, c) => s + (c.votes || 0), 0);
+          const items = groups[pos]; 
+          const total = items.reduce((s, c) => s + (c.votes || 0), 0);
+          
           return `
             <div class="res-group">
-              <h4>${esc(LABELS[pos] || pos)}</h4>
-              ${items.map(c => {
+              <h4 style="margin-bottom:15px; font-size:1rem; border-bottom:1px solid #eee; padding-bottom:5px;">${esc(LABELS[pos] || pos)}</h4>
+              
+              ${items.map((c, i) => {
                 const pct = total ? Math.round((c.votes || 0) / total * 100) : 0;
-                return `<div class="res-bar"><div class="res-name">No. ${esc(c.noUrut || '-')} • ${esc(c.name)}</div><div class="bar"><div class="fill" style="width:${pct}%"></div></div><div class="res-count">${c.votes || 0}</div></div>`;
+                const color = COLORS[i % COLORS.length];
+                
+                return `
+                  <div style="display:flex; align-items:center; gap:15px; margin-bottom:12px;">
+                    <!-- FOTO CALON -->
+                    <div style="width:50px; height:50px; flex-shrink:0; border-radius:50%; overflow:hidden; border:2px solid #e2e8f0; background:#f1f5f9;">
+                      <img src="${esc(c.photoUrl || '')}" 
+                           style="width:100%; height:100%; object-fit:cover;" 
+                           onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22><circle cx=%2225%22 cy=%2225%22 r=%2225%22 fill=%22%23e2e8f0%22/></svg>'">
+                    </div>
+                    
+                    <!-- NAMA & GRAFIK -->
+                    <div style="flex:1; min-width:0;">
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                          No. ${esc(c.noUrut || '-')} • ${esc(c.name)}
+                        </div>
+                        <div style="font-weight:700; font-size:0.9rem; color:${color};">
+                          ${c.votes || 0} Suara (${pct}%)
+                        </div>
+                      </div>
+                      
+                      <!-- Bar Chart -->
+                      <div style="height:16px; background:#f1f5f9; border-radius:8px; overflow:hidden; position:relative;">
+                        <div style="height:100%; width:${pct}%; background:${color}; border-radius:8px; transition:width 1s ease-in-out;"></div>
+                      </div>
+                    </div>
+                  </div>
+                `;
               }).join('')}
-            </div>`;
+              
+              <div style="text-align:right; font-size:0.8rem; color:var(--muted); margin-top:5px;">
+                Total Suara Sah: <strong>${total}</strong>
+              </div>
+            </div>
+          `;
         }).join('')}
       </div>
     `;
   }
 
-  /* BERITA ACARA */
+  /* ============================================================
+   *  8. BERITA ACARA (Dengan Cetak PDF)
+   * ============================================================ */
   async function beritaAcara() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
     const el = view(); if (!el) return;
@@ -846,8 +922,13 @@ window.ViewsAdmin = (function () {
 
       return `
         <div class="ba-item">
-          <strong>${esc(ba.title || 'Berita Acara')}</strong>
-          <small>${esc(ba.createdAt ? UI.formatDateTime(ba.createdAt) : '-')} • ${esc(ba.createdBy || '-')}</small>
+          <div class="row-between">
+            <div>
+              <strong>${esc(ba.title || 'Berita Acara')}</strong>
+              <small>${esc(ba.createdAt ? UI.formatDateTime(ba.createdAt) : '-')} • ${esc(ba.createdBy || '-')}</small>
+            </div>
+            <button class="btn-ghost btn-sm" onclick="ViewsAdmin.printBa('${esc(ba.id)}')">🖨️ Cetak PDF</button>
+          </div>
           <pre style="white-space: pre-wrap; font-family: inherit; margin-top:10px;">${esc(ba.content || '')}</pre>
           ${sigsHtml}
         </div>
@@ -984,7 +1065,44 @@ window.ViewsAdmin = (function () {
     });
   }
 
-  /* SETTINGS */
+  async function printBa(id) {
+    const r = await fetchData('ba.list', {});
+    if (!r.success) return;
+    const ba = r.data.find(x => String(x.id) === String(id));
+    if (!ba) return;
+
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <html><head><title>Berita Acara</title>
+      <style>
+        body { font-family: 'Times New Roman', serif; padding: 40px; font-size: 14px; line-height: 1.6; }
+        h2 { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; }
+        pre { white-space: pre-wrap; font-family: inherit; }
+        .ttd-area { display: flex; justify-content: space-between; margin-top: 50px; text-align: center; }
+        .ttd-box { width: 30%; }
+        .ttd-box img { height: 70px; margin: 10px 0; }
+        @media print { @page { margin: 20mm; } }
+      </style></head><body>
+      <h2>${esc(ba.title)}</h2>
+      <pre>${esc(ba.content)}</pre>
+      <div class="ttd-area">
+        ${(JSON.parse(ba.signatures || '[]')).map(s => `
+          <div class="ttd-box">
+            <div>${esc(s.name)}</div>
+            ${s.url ? `<img src="${s.url}">` : `<div style="height:70px"></div>`}
+            <div style="border-top:1px solid #000">Tanda Tangan</div>
+          </div>
+        `).join('')}
+      </div>
+      <script>setTimeout(()=>window.print(), 500);<\/script>
+      </body></html>
+    `);
+    win.document.close();
+  }
+
+  /* ============================================================
+   *  9. SETTINGS (Pengaturan + Backup)
+   * ============================================================ */
   async function settings() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
     const el = view(); if (!el) return;
@@ -1022,6 +1140,15 @@ window.ViewsAdmin = (function () {
         <input type="file" id="sigFileInput" accept="image/*" style="display:none">
       </div>
       <div class="row" style="margin-top:16px"><button class="btn-primary" id="btnSaveSettings" type="button">💾 Simpan</button></div>
+
+      <hr style="margin:24px 0;">
+      <h3>Backup & Restore</h3>
+      <p class="hint">Ekspor semua data ke file .json untuk backup.</p>
+      <div class="row">
+        <button class="btn-primary" id="btnExportBackup" type="button">📥 Download Backup</button>
+        <input type="file" id="importBackupFile" accept=".json" style="display:none">
+        <button class="btn-ghost" id="btnImportBackup" type="button">📤 Restore Backup</button>
+      </div>
     `;
 
     const padHost = document.getElementById('sigPadSettings');
@@ -1053,7 +1180,43 @@ window.ViewsAdmin = (function () {
         reader.readAsDataURL(file);
       };
     }
+    
     const btnSave = document.getElementById('btnSaveSettings'); if (btnSave) btnSave.onclick = saveSettings;
+
+    // Backup Handlers
+    const btnExport = document.getElementById('btnExportBackup');
+    if (btnExport) {
+      btnExport.onclick = async () => {
+        const r = await API.post('backup.export');
+        if (!r.success) return UI.toast('Gagal backup', 'error');
+        const blob = new Blob([JSON.stringify(r.data, null, 2)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'evote-backup-' + new Date().toISOString().slice(0,10) + '.json';
+        a.click();
+      };
+    }
+    
+    const btnImport = document.getElementById('btnImportBackup');
+    const importFile = document.getElementById('importBackupFile');
+    if (btnImport && importFile) {
+      btnImport.onclick = () => importFile.click();
+      importFile.onchange = function(e) {
+        const file = e.target.files && e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async function(ev) {
+          try {
+            const data = JSON.parse(ev.target.result);
+            const ok = await UI.confirm('Restore data? Data saat ini akan ditimpa.', { danger: true });
+            if (!ok) return;
+            const r = await API.post('backup.import', { data });
+            if (r.success) { UI.toast('Restore berhasil', 'success'); loadSettings(); }
+            else { UI.toast('Gagal restore: ' + r.message, 'error'); }
+          } catch (err) { UI.toast('File JSON tidak valid', 'error'); }
+        };
+        reader.readAsText(file);
+      };
+    }
   }
 
   async function saveSettings() {
@@ -1078,10 +1241,54 @@ window.ViewsAdmin = (function () {
     finally { if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan'; } }
   }
 
-  /* EXPORTS */
+  /* ============================================================
+   *  10. AUDIT LOGS (Log Aktivitas)
+   * ============================================================ */
+  async function logs() {
+    clearAllPolls(); cleanupSignPad(); safeQRStop();
+    const el = view(); if (!el) return;
+    el.innerHTML = `
+      <div class="card">
+        <div class="row-between">
+          <h3>Audit Trail (Log Aktivitas)</h3>
+          <button class="btn-ghost btn-sm" id="btnRefreshLog" type="button">🔄 Refresh</button>
+        </div>
+        <div id="logList" style="margin-top:12px">${UI.skeleton(4)}</div>
+      </div>
+    `;
+    document.getElementById('btnRefreshLog').onclick = () => loadLogs();
+    await loadLogs();
+  }
+
+  async function loadLogs() {
+    const area = document.getElementById('logList'); if (!area) return;
+    let r = await fetchData('logs.list', {}, true);
+    if (!r || !r.success) { area.innerHTML = `<p class="hint">Gagal memuat log.</p>`; return; }
+    
+    const list = (r.data || []).sort((a,b) => String(b.timestamp||'').localeCompare(String(a.timestamp||''))).slice(0, 100);
+    area.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Waktu</th><th>User</th><th>Aksi</th><th>Detail</th></tr></thead>
+          <tbody>
+            ${list.map(l => `
+              <tr>
+                <td><small>${UI.formatDateTime(l.timestamp)}</small></td>
+                <td><strong>${esc(l.user)}</strong></td>
+                <td><span class="badge ${l.action === 'vote' ? 'warn' : l.action === 'checkin' ? 'ok' : 'info'}">${esc(l.action)}</span></td>
+                <td><small>${esc(l.detail)}</small></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  /* ============================================================
+   *  EXPORTS
+   * ============================================================ */
   return {
-    dashboard, voters, candidates, booths, users, invitations, results, beritaAcara, settings,
-    editVoter, deleteVoter, editCandidate, deleteCandidate, editBooth, freeBooth, deleteBooth, editUser, deleteUser, prevInvPage, nextInvPage,
+    dashboard, voters, candidates, booths, users, invitations, results, beritaAcara, settings, logs,
+    editVoter, deleteVoter, resetVoter, editCandidate, deleteCandidate, editBooth, freeBooth, deleteBooth, editUser, deleteUser, prevInvPage, nextInvPage, printBa,
     _clearAllPolls: function () { clearAllPolls(); cleanupSignPad(); safeQRStop(); },
   };
 })();

@@ -6,7 +6,7 @@ window.API = (function () {
   'use strict';
 
   /* ⚠️ GANTI URL INI DENGAN URL DEPLOY APPS SCRIPT ANDA (Yang berakhiran /exec) */
-  const BASE_URL = 'https://script.google.com/macros/s/AKfycbyEY0qE0ovuB-cNmeP23miY7ESkBcQd-Uy9p24A-nCrl2un8ZCbL8sQzHDEJ2E7n_IsEw/exec';
+  const BASE_URL = 'https://script.google.com/macros/s/AKfycbytYM5RqDWc0YDEL7xiAx2D5EDq3DHcRf9_i0NN9MyYM7UtybgGYv6mASrrviCjj1StBQ/exec';
   
   const TIMEOUT_MS = 25000;
 
