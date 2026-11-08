@@ -4,67 +4,146 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#2563eb" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="description" content="Login E-Vote — Sistem Pemilihan Elektronik" />
+
   <title>Masuk • E-Vote</title>
+
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="css/style.css" />
+
   <style>
-    .landing-extras { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+    /* =========================================
+       LOGIN PAGE STYLES
+       ========================================= */
+    .landing-extras {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
     .password-wrap { position: relative; }
     .password-wrap input { padding-right: 44px; }
     .pwd-toggle {
-      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-      width: 36px; height: 36px; display: grid; place-items: center;
-      border-radius: 10px; color: var(--muted); transition: .15s ease;
-      border: 0; background: transparent; cursor: pointer;
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      color: var(--muted);
+      transition: .15s ease;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
     }
     .pwd-toggle:hover { background: #f1f5f9; color: var(--text); }
+
     .remember-row {
-      display: flex; align-items: center; gap: 8px;
-      font-size: .85rem; color: var(--muted); margin: 4px 0 0; user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .85rem;
+      color: var(--muted);
+      margin: 4px 0 0;
+      user-select: none;
       cursor: pointer;
     }
     .remember-row input[type="checkbox"] {
-      width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer;
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+      cursor: pointer;
     }
+
     .login-card .btn-primary {
-      width: 100%; margin-top: 16px; padding: 13px; font-size: .95rem;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%;
+      margin-top: 16px;
+      padding: 13px;
+      font-size: .95rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
+
     .login-card .btn-primary .spinner-inline {
-      width: 14px; height: 14px;
+      width: 14px;
+      height: 14px;
       border: 2px solid rgba(255,255,255,.4);
-      border-top-color: #fff; border-radius: 50%;
+      border-top-color: #fff;
+      border-radius: 50%;
       animation: spin .7s linear infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
 
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ---------- Banner ---------- */
     .banner {
-      padding: 10px 14px; border-radius: 10px; font-size: .85rem;
-      line-height: 1.4; display: none; margin-bottom: 4px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: .85rem;
+      line-height: 1.4;
+      display: none;
+      margin-bottom: 4px;
       animation: slideIn .2s ease;
     }
     .banner.show { display: block; }
-    .banner.error { background: var(--err-soft); color: var(--err-text); border: 1px solid #fecaca; }
-    .banner.warn  { background: var(--warn-soft); color: var(--warn-text); border: 1px solid #fde68a; }
-    .banner.info  { background: var(--primary-soft); color: var(--primary-700); border: 1px solid #bfdbfe; }
-    .banner.success { background: var(--ok-soft); color: var(--ok-text); border: 1px solid #bbf7d0; }
-    @keyframes slideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    .banner.error   { background: var(--err-soft);     color: var(--err-text);     border: 1px solid #fecaca; }
+    .banner.warn    { background: var(--warn-soft);    color: var(--warn-text);    border: 1px solid #fde68a; }
+    .banner.info    { background: var(--primary-soft); color: var(--primary-700);  border: 1px solid #bfdbfe; }
+    .banner.success { background: var(--ok-soft);      color: var(--ok-text);      border: 1px solid #bbf7d0; }
 
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ---------- Brand badge ---------- */
     .brand-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 4px 10px; background: var(--primary-50); color: var(--primary-700);
-      border-radius: 999px; font-size: .72rem; font-weight: 600;
-      margin-top: 8px; letter-spacing: .02em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--primary-50);
+      color: var(--primary-700);
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 600;
+      margin-top: 8px;
+      letter-spacing: .02em;
     }
     .brand-badge .dot-live {
-      width: 6px; height: 6px; background: var(--ok);
-      border-radius: 50%; animation: pulse 1.6s ease-in-out infinite;
+      width: 6px;
+      height: 6px;
+      background: var(--ok);
+      border-radius: 50%;
+      animation: pulse 1.6s ease-in-out infinite;
     }
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50%      { opacity: .4; transform: scale(.75); }
     }
-    .version-stamp { font-size: .7rem; color: var(--muted-2); margin-top: 6px; }
+
+    .version-stamp {
+      font-size: .7rem;
+      color: var(--muted-2);
+      margin-top: 6px;
+    }
+
+    /* ---------- Mobile optimization ---------- */
+    @media (max-width: 480px) {
+      input, select, textarea {
+        font-size: 16px !important; /* Anti-zoom iOS */
+      }
+    }
   </style>
 </head>
 <body class="landing">
@@ -92,7 +171,7 @@
         <label class="field">
           <span>Username</span>
           <input id="username" name="username" class="input" type="text"
-                 placeholder="admin / petugas1 / bilik-1"
+                 placeholder="admin / petugas1 / bilik-1 / coklit1"
                  autocomplete="username" autocapitalize="off" autocorrect="off"
                  spellcheck="false" required />
         </label>
@@ -121,7 +200,7 @@
 
     <div class="footer">
       © <span id="year">2025</span> Panitia Pemilihan • Sistem E-Vote
-      <div class="version-stamp">v1.0 • Powered by Apps Script &amp; GitHub Pages</div>
+      <div class="version-stamp">v2.0 • Powered by Apps Script &amp; GitHub Pages</div>
     </div>
   </div>
 
@@ -132,14 +211,14 @@
   (function () {
     'use strict';
 
-    const form        = document.getElementById('loginForm');
-    const usernameI   = document.getElementById('username');
-    const passwordI   = document.getElementById('password');
-    const pwdToggle   = document.getElementById('pwdToggle');
-    const loginBtn    = document.getElementById('loginBtn');
-    const banner      = document.getElementById('loginBanner');
-    const remember    = document.getElementById('rememberUsername');
-    const yearEl      = document.getElementById('year');
+    const form       = document.getElementById('loginForm');
+    const usernameI  = document.getElementById('username');
+    const passwordI  = document.getElementById('password');
+    const pwdToggle  = document.getElementById('pwdToggle');
+    const loginBtn   = document.getElementById('loginBtn');
+    const banner     = document.getElementById('loginBanner');
+    const remember   = document.getElementById('rememberUsername');
+    const yearEl     = document.getElementById('year');
 
     const LS_REMEMBER = 'evote_remember_username';
     const Store       = (window.SafeStorage || window.localStorage);
@@ -148,7 +227,9 @@
 
     let submitting = false;
 
-    /* ---------- Banner helpers ---------- */
+    /* =========================================================
+       BANNER HELPERS
+       ========================================================= */
     function showBanner(msg, type) {
       if (!banner) return;
       banner.textContent = msg;
@@ -160,7 +241,9 @@
       banner.className = 'banner';
     }
 
-    /* ---------- Loading state ---------- */
+    /* =========================================================
+       LOADING STATE
+       ========================================================= */
     function setLoading(isLoading) {
       submitting = isLoading;
       if (loginBtn) {
@@ -171,24 +254,53 @@
       }
       if (usernameI) usernameI.disabled = isLoading;
       if (passwordI) passwordI.disabled = isLoading;
+      if (remember)  remember.disabled = isLoading;
     }
 
-    /* ---------- Config guard ---------- */
+    /* =========================================================
+       CONFIG GUARD (BASE_URL belum di-set)
+       ========================================================= */
     if (window.API && API.isConfigured && !API.isConfigured()) {
       showBanner('Backend belum dikonfigurasi. Buka js/api.js dan ganti BASE_URL.', 'warn');
     }
 
-    /* ---------- Auto-redirect kalau sudah login ---------- */
+    /* =========================================================
+       SESSION EXPIRED (dari ?expired=1)
+       ========================================================= */
     try {
-      if (window.API && API.isLoggedIn && API.isLoggedIn()) {
-        location.replace('app.html');
+      const urlParams = new URLSearchParams(location.search);
+      if (urlParams.get('expired') === '1') {
+        showBanner('Sesi Anda telah berakhir. Silakan login ulang.', 'warn');
+      }
+    } catch (_) {}
+
+    /* =========================================================
+       AUTO-REDIRECT JIKA SUDAH LOGIN
+       ========================================================= */
+    try {
+      if (window.Auth && Auth.isLoggedIn && Auth.isLoggedIn()) {
+        // Redirect ke home route sesuai role
+        if (Auth.homeForRole) {
+          const target = Auth.homeForRole(Auth.role ? Auth.role() : '');
+          location.replace('app.html' + (target.startsWith('#') ? target : ''));
+        } else {
+          location.replace('app.html');
+        }
         return;
       }
     } catch (_) {}
 
-    /* ---------- Restore username ---------- */
+    /* =========================================================
+       RESTORE REMEMBERED USERNAME
+       ========================================================= */
     try {
-      const saved = Store.getItem(LS_REMEMBER);
+      let saved = '';
+      if (window.Auth && Auth.rememberedUsername) {
+        saved = Auth.rememberedUsername();
+      } else {
+        saved = Store.getItem(LS_REMEMBER) || '';
+      }
+
       if (saved && usernameI) {
         usernameI.value = saved;
         if (remember) remember.checked = true;
@@ -198,7 +310,9 @@
       }
     } catch (_) {}
 
-    /* ---------- Password toggle ---------- */
+    /* =========================================================
+       PASSWORD TOGGLE
+       ========================================================= */
     if (pwdToggle && passwordI) {
       pwdToggle.addEventListener('click', function () {
         const isPwd = passwordI.type === 'password';
@@ -209,10 +323,25 @@
       });
     }
 
-    /* ---------- Submit handler ---------- */
+    /* =========================================================
+       ROLE → REDIRECT TARGET (✅ + coklit)
+       ========================================================= */
+    function roleRedirect(role) {
+      switch (String(role || '').toLowerCase()) {
+        case 'admin':   return 'app.html#/admin';
+        case 'petugas': return 'app.html#/petugas';
+        case 'bilik':   return 'app.html#/bilik';
+        case 'coklit':  return 'app.html#/coklit';
+        default:        return 'app.html';
+      }
+    }
+
+    /* =========================================================
+       SUBMIT HANDLER
+       ========================================================= */
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
-      if (submitting) return; // guard double-submit
+      if (submitting) return;
       clearBanner();
 
       const username = (usernameI && usernameI.value || '').trim();
@@ -225,19 +354,14 @@
 
       setLoading(true);
 
-      /* Redirect berdasarkan role setelah sukses */
-      const roleRedirect = (role) => {
-        switch (String(role || '').toLowerCase()) {
-          case 'admin':   return 'app.html#/admin';
-          case 'petugas': return 'app.html#/petugas';
-          case 'bilik':   return 'app.html#/bilik';
-          default:        return 'app.html';
-        }
-      };
-
       let res;
       try {
-        res = await API.login(username, password);
+        // Prefer Auth.login jika ada (untuk event emit), fallback ke API
+        if (window.Auth && Auth.login) {
+          res = await Auth.login(username, password);
+        } else {
+          res = await API.login(username, password);
+        }
       } catch (err) {
         setLoading(false);
         showBanner('Kesalahan jaringan: ' + (err && err.message ? err.message : err), 'error');
@@ -251,29 +375,45 @@
         return;
       }
 
-      /* Simpan sesi (API.login sudah set session, tapi pastikan) */
+      /* ---------- Simpan sesi (jika belum dari Auth.login) ---------- */
       try {
-        if (res.token && res.user && API.setSession) {
+        if (res.token && res.user && window.Auth && Auth.setSession) {
+          // Auth.login sudah setSession; hanya panggil jika lewat API langsung
+          if (!Auth.isLoggedIn || !Auth.isLoggedIn()) {
+            Auth.setSession(res.token, res.user);
+          }
+        } else if (res.token && res.user && API.setSession) {
           API.setSession(res.token, res.user);
         }
       } catch (_) {}
 
-      /* Remember username */
+      /* ---------- Remember username ---------- */
       try {
-        if (remember && remember.checked) Store.setItem(LS_REMEMBER, username);
-        else Store.removeItem(LS_REMEMBER);
+        const shouldRemember = remember && remember.checked;
+        if (window.Auth && Auth.saveRememberedUsername) {
+          Auth.saveRememberedUsername(shouldRemember ? username : '');
+        } else if (shouldRemember) {
+          Store.setItem(LS_REMEMBER, username);
+        } else {
+          Store.removeItem(LS_REMEMBER);
+        }
       } catch (_) {}
 
-      /* Feedback UI */
-      if (loginBtn) loginBtn.innerHTML = '<span class="spinner-inline"></span> Berhasil…';
+      /* ---------- Feedback UI ---------- */
+      if (loginBtn) {
+        loginBtn.innerHTML = '<span class="spinner-inline"></span> Berhasil…';
+      }
       showBanner('Login berhasil. Mengalihkan…', 'success');
 
-      /* Redirect berdasarkan role */
+      /* ---------- Redirect berdasarkan role ---------- */
       const target = roleRedirect(res.user && res.user.role);
       setTimeout(function () { location.replace(target); }, 350);
     });
 
-    /* ---------- UX helpers ---------- */
+    /* =========================================================
+       UX HELPERS
+       ========================================================= */
+    /* Enter di username → fokus ke password */
     if (usernameI) {
       usernameI.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
@@ -282,9 +422,16 @@
         }
       });
     }
+
+    /* Clear banner saat user mengetik */
     [usernameI, passwordI].forEach(function (el) {
       if (el) el.addEventListener('input', clearBanner);
     });
+
+    /* Auto-focus password jika username sudah terisi */
+    if (usernameI && passwordI && usernameI.value && !passwordI.value) {
+      setTimeout(function () { try { passwordI.focus(); } catch (_) {} }, 100);
+    }
   })();
   </script>
 </body>

@@ -4,7 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#2563eb" />
+  <meta name="description" content="E-Vote — Pemilihan Ketua RT / Ketua & Wakil Pemuda. Kenali visi misi calon sebelum memilih." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+
   <title>E-Vote • Pemilihan Ketua Pemuda</title>
+
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="css/style.css" />
 
@@ -14,15 +19,21 @@
        ========================================= */
     :root { --nav-height: 72px; }
     html { scroll-behavior: smooth; scroll-padding-top: var(--nav-height); }
-    body { background: #f8fafc; overflow-x: hidden; font-family: 'Inter', sans-serif; }
+    body {
+      background: #f8fafc;
+      overflow-x: hidden;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    }
 
     /* --- NAVBAR --- */
     .navbar {
       position: fixed; top: 0; left: 0; right: 0; height: var(--nav-height);
       display: flex; justify-content: space-between; align-items: center;
-      padding: 0 24px; background: rgba(255, 255, 255, 0.85);
+      padding: 0 24px;
+      background: rgba(255, 255, 255, 0.85);
       backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border); z-index: 1000;
+      border-bottom: 1px solid var(--border);
+      z-index: 1000;
       transition: box-shadow 0.3s ease;
     }
     .nav-brand {
@@ -56,6 +67,7 @@
       font-weight: 600; text-decoration: none;
       transition: .2s; margin-left: 12px;
       box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+      display: inline-flex; align-items: center; gap: 6px;
     }
     .login-btn-top:hover {
       background: var(--primary-600); transform: translateY(-1px);
@@ -78,7 +90,7 @@
     .nav-dropdown-menu {
       position: absolute; top: calc(100% + 10px); right: 0;
       background: #fff; border-radius: 12px; border: 1px solid var(--border);
-      box-shadow: var(--shadow-lg); min-width: 200px; padding: 8px;
+      box-shadow: var(--shadow-lg); min-width: 220px; padding: 8px;
       opacity: 0; pointer-events: none; transform: translateY(-10px);
       transition: all 0.2s ease; z-index: 1001;
       display: flex; flex-direction: column;
@@ -86,14 +98,29 @@
     .nav-user-dropdown.active .nav-dropdown-menu {
       opacity: 1; pointer-events: auto; transform: translateY(0);
     }
+    .nav-dropdown-menu .dd-header {
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .nav-dropdown-menu .dd-header strong {
+      display: block; font-size: 0.9rem; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .nav-dropdown-menu .dd-header small {
+      color: var(--muted); font-size: 0.72rem; text-transform: uppercase;
+      letter-spacing: 0.06em; font-weight: 600;
+    }
     .nav-dropdown-menu a, .nav-dropdown-menu button {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 14px; border-radius: 8px;
       text-decoration: none; color: var(--text); font-weight: 500;
       font-size: 0.9rem; transition: background 0.15s;
-      width: 100%; text-align: left; border: 0; background: transparent; cursor: pointer;
+      width: 100%; text-align: left;
+      border: 0; background: transparent; cursor: pointer;
     }
-    .nav-dropdown-menu a:hover, .nav-dropdown-menu button:hover { background: #f1f5f9; }
+    .nav-dropdown-menu a:hover, .nav-dropdown-menu button:hover {
+      background: #f1f5f9;
+    }
     .nav-dropdown-menu button.danger { color: var(--err); }
     .nav-dropdown-menu button.danger:hover { background: var(--err-soft); }
     .dropdown-divider { height: 1px; background: var(--border); margin: 6px 0; }
@@ -107,7 +134,8 @@
       display: none; position: fixed; top: var(--nav-height); left: 0; right: 0;
       background: #fff; border-bottom: 1px solid var(--border);
       padding: 16px 24px; flex-direction: column; gap: 16px;
-      z-index: 999; box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+      z-index: 999;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.05);
       transform: translateY(-10px); opacity: 0; pointer-events: none;
       transition: all 0.3s ease;
     }
@@ -118,11 +146,22 @@
       text-decoration: none; color: var(--text); font-weight: 600;
       font-size: 1rem; padding: 8px 0;
       border-bottom: 1px solid var(--border); text-align: left;
-      background: transparent; border-left: 0; border-right: 0; border-top: 0; cursor: pointer;
+      background: transparent; cursor: pointer;
+      border-left: 0; border-right: 0; border-top: 0;
     }
     .mobile-menu button.danger { color: var(--err); border: none; }
     .mobile-menu .login-btn-top {
       display: block; text-align: center; margin: 8px 0 0 0; border: none;
+    }
+    .mobile-menu .mob-user-info {
+      padding: 8px 0; border-bottom: 1px solid var(--border);
+    }
+    .mobile-menu .mob-user-info strong {
+      display: block; font-size: 0.95rem;
+    }
+    .mobile-menu .mob-user-info small {
+      color: var(--muted); font-size: 0.72rem;
+      text-transform: uppercase; letter-spacing: 0.06em;
     }
 
     /* --- HERO SECTION --- */
@@ -190,7 +229,7 @@
       color: var(--border); line-height: 1; margin-top: -4px;
     }
     .countdown-done {
-      font-size: 1.5rem; font-weight: 800;
+      font-size: 1.3rem; font-weight: 800;
       color: var(--ok); padding: 12px 0;
     }
 
@@ -276,7 +315,10 @@
       margin-bottom: 8px; animation: pulse 1.5s infinite;
     }
     .skeleton-text.short { width: 80%; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
 
     /* --- ERROR STATE --- */
     .error-state {
@@ -410,9 +452,13 @@
 </head>
 <body>
 
-  <!-- NAVBAR -->
+  <!-- =========================================================
+       NAVBAR
+       ========================================================= -->
   <nav class="navbar" id="navbar">
-    <a href="#hero" class="nav-brand"><span class="dot"></span> E-Vote</a>
+    <a href="#hero" class="nav-brand">
+      <span class="dot"></span> E-Vote
+    </a>
 
     <div class="nav-links">
       <a href="#hero" class="active">Beranda</a>
@@ -428,11 +474,16 @@
       <div class="nav-user-dropdown" id="navUserDropdown" style="display: none;">
         <button class="nav-user-btn" id="navUserBtn" type="button">
           <span id="navUserName">User</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </button>
         <div class="nav-dropdown-menu">
+          <div class="dd-header">
+            <strong id="navUserFullName">—</strong>
+            <small id="navUserRole">—</small>
+          </div>
           <a href="#" id="navDashLink">📊 Dashboard</a>
           <div class="dropdown-divider"></div>
           <button id="navLogoutBtn" class="danger" type="button">🚪 Keluar</button>
@@ -454,19 +505,27 @@
     <a href="login.html" class="login-btn-top" id="mobLoginBtn">Masuk / Login</a>
 
     <div id="mobUserMenu" style="display: none; flex-direction: column; gap: 8px;">
+      <div class="mob-user-info">
+        <strong id="mobUserName">—</strong>
+        <small id="mobUserRole">—</small>
+      </div>
       <a href="#" id="mobDashLink">📊 Dashboard</a>
       <button id="mobLogoutBtn" class="danger" type="button">🚪 Keluar</button>
     </div>
   </div>
 
-  <!-- HERO -->
+  <!-- =========================================================
+       HERO
+       ========================================================= -->
   <header class="hero-section" id="hero">
     <span class="hero-badge">PILIHAN RAKYAT 2026</span>
     <h1>Kenali Calon <span>Pemimpin Anda</span></h1>
     <p>Mari sukseskan pemilihan Ketua RT &amp; Ketua/Wakil Pemuda. Kenali visi, misi, dan profil para calon sebelum memberikan hak suara Anda.</p>
   </header>
 
-  <!-- COUNTDOWN TIMER -->
+  <!-- =========================================================
+       COUNTDOWN TIMER
+       ========================================================= -->
   <div class="countdown-wrapper">
     <div class="countdown-box">
       <div class="countdown-title" id="timerTitle">Menuju Hari Pemungutan Suara</div>
@@ -482,19 +541,23 @@
     </div>
   </div>
 
-  <!-- KANDIDAT -->
+  <!-- =========================================================
+       KANDIDAT
+       ========================================================= -->
   <main class="container" id="kandidat">
     <div class="section-header">
       <h2>Profil Kandidat</h2>
       <p>Berikut adalah daftar calon pemimpin yang siap mengabdi untuk lingkungan kita.</p>
     </div>
 
+    <!-- Skeleton loading -->
     <div id="loadingState" class="candidate-grid">
       <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
       <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
       <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
     </div>
 
+    <!-- Error state -->
     <div id="errorState" style="display: none;">
       <div class="error-state">
         <h3>Gagal Memuat Data</h3>
@@ -503,6 +566,7 @@
       </div>
     </div>
 
+    <!-- Candidates area -->
     <div id="candidatesArea" style="display: none;">
       <section id="section-rt" style="display:none; margin-bottom: 48px;">
         <h3 style="font-size: 1.3rem; margin-bottom: 24px; border-left: 4px solid var(--primary); padding-left: 12px;">Calon Ketua RT</h3>
@@ -515,7 +579,9 @@
     </div>
   </main>
 
-  <!-- JADWAL -->
+  <!-- =========================================================
+       JADWAL
+       ========================================================= -->
   <section style="background: #fff; padding: 80px 24px; border-top: 1px solid var(--border);" id="jadwal">
     <div class="container">
       <div class="section-header">
@@ -531,7 +597,9 @@
     </div>
   </section>
 
-  <!-- PANDUAN -->
+  <!-- =========================================================
+       PANDUAN
+       ========================================================= -->
   <section class="container" id="panduan">
     <div class="section-header">
       <h2>Panduan Memilih</h2>
@@ -544,7 +612,9 @@
     </div>
   </section>
 
-  <!-- FEEDBACK -->
+  <!-- =========================================================
+       FEEDBACK
+       ========================================================= -->
   <section class="feedback-section" id="kritik-saran">
     <div class="feedback-box">
       <h2>Kritik &amp; Saran</h2>
@@ -572,10 +642,16 @@
     </div>
   </section>
 
+  <!-- =========================================================
+       FOOTER
+       ========================================================= -->
   <footer class="footer">
     <p>© <span id="year"></span> Panitia Pemilihan • Sistem E-Vote</p>
   </footer>
 
+  <!-- =========================================================
+       SCRIPTS
+       ========================================================= -->
   <script src="js/storage.js"></script>
   <script src="js/api.js"></script>
   <script>
@@ -587,17 +663,21 @@
     if (yearEl) yearEl.textContent = new Date().getFullYear();
 
     /* =========================================
-       1. CEK STATUS LOGIN
+       ROLE → DASHBOARD PATH (✅ + coklit)
        ========================================= */
     function roleToDashPath(role) {
       switch (String(role || '').toLowerCase()) {
         case 'admin':   return 'app.html#/admin';
         case 'petugas': return 'app.html#/petugas';
         case 'bilik':   return 'app.html#/bilik';
+        case 'coklit':  return 'app.html#/coklit';
         default:        return 'app.html';
       }
     }
 
+    /* =========================================
+       NAVBAR USER STATE
+       ========================================= */
     function checkLoginStatus() {
       let loggedIn = false;
       let user = null;
@@ -610,36 +690,55 @@
 
       if (loggedIn && user) {
         const userName = user.name || user.username || 'User';
+        const userRole = (user.role || '').toUpperCase();
         const dashPath = roleToDashPath(user.role);
 
-        // Desktop
+        /* Desktop */
         const loginBtn = document.getElementById('navLoginBtn');
         const userDropdown = document.getElementById('navUserDropdown');
         if (loginBtn) loginBtn.style.display = 'none';
         if (userDropdown) {
           userDropdown.style.display = 'block';
           const nameEl = document.getElementById('navUserName');
-          if (nameEl) nameEl.textContent = userName;
+          if (nameEl) nameEl.textContent = userName.split(' ')[0];
+          const fullEl = document.getElementById('navUserFullName');
+          if (fullEl) fullEl.textContent = userName;
+          const roleEl = document.getElementById('navUserRole');
+          if (roleEl) roleEl.textContent = userRole;
           const dash = document.getElementById('navDashLink');
           if (dash) dash.href = dashPath;
         }
 
-        // Mobile
+        /* Mobile */
         const mobLoginBtn = document.getElementById('mobLoginBtn');
         const mobUserMenu = document.getElementById('mobUserMenu');
         if (mobLoginBtn) mobLoginBtn.style.display = 'none';
         if (mobUserMenu) {
           mobUserMenu.style.display = 'flex';
+          const mobName = document.getElementById('mobUserName');
+          if (mobName) mobName.textContent = userName;
+          const mobRole = document.getElementById('mobUserRole');
+          if (mobRole) mobRole.textContent = userRole;
           const mobDash = document.getElementById('mobDashLink');
           if (mobDash) mobDash.href = dashPath;
         }
 
-        // Logout handler
+        /* Logout handler */
         const logoutHandler = function (e) {
           e.preventDefault();
           const doLogout = function () {
-            try { API.logout(); } catch (_) {}
+            try {
+              if (window.Auth && Auth.logout) {
+                Auth.logout({ redirect: false });
+              } else if (window.API) {
+                API.logout({ redirect: false });
+              }
+              setTimeout(() => location.reload(), 200);
+            } catch (_) {
+              location.reload();
+            }
           };
+
           if (window.UI && UI.confirm) {
             UI.confirm('Keluar dari aplikasi?', { okLabel: 'Ya, Keluar' })
               .then(function (ok) { if (ok) doLogout(); });
@@ -656,7 +755,7 @@
       } else {
         const loginBtn = document.getElementById('navLoginBtn');
         const mobLoginBtn = document.getElementById('mobLoginBtn');
-        if (loginBtn) loginBtn.style.display = 'inline-block';
+        if (loginBtn) loginBtn.style.display = 'inline-flex';
         if (mobLoginBtn) mobLoginBtn.style.display = 'block';
 
         const ud = document.getElementById('navUserDropdown');
@@ -668,7 +767,7 @@
     checkLoginStatus();
 
     /* =========================================
-       2. DROPDOWN TOGGLE
+       DROPDOWN TOGGLE
        ========================================= */
     const navUserBtn = document.getElementById('navUserBtn');
     const navUserDropdown = document.getElementById('navUserDropdown');
@@ -685,7 +784,7 @@
     }
 
     /* =========================================
-       3. COUNTDOWN TIMER
+       COUNTDOWN TIMER
        ========================================= */
     let timerInterval = null;
 
@@ -709,7 +808,7 @@
           if (distance < 0) {
             if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
             if (timerTitle) timerTitle.textContent = 'Status Pemilihan';
-            timerDisplay.innerHTML = `<div class="countdown-done">PEMUNGUTAN SUARA SEDANG/TELAH BERLANGSUNG</div>`;
+            timerDisplay.innerHTML = `<div class="countdown-done">PEMUNGUTAN SUARA SEDANG / TELAH BERLANGSUNG</div>`;
             return;
           }
           const d = Math.floor(distance / 86400000);
@@ -734,7 +833,7 @@
     loadTimer();
 
     /* =========================================
-       4. MOBILE MENU & SCROLL SPY
+       MOBILE MENU & SCROLL SPY
        ========================================= */
     const menuToggle = document.getElementById('menuToggle');
     const mobileMenu = document.getElementById('mobileMenu');
@@ -753,9 +852,10 @@
       });
     }
 
-    // Scroll spy
+    /* Scroll spy */
     const sections = document.querySelectorAll('section[id], header[id]');
     const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+    const navbar = document.getElementById('navbar');
 
     let scrollTick = false;
     window.addEventListener('scroll', function () {
@@ -773,7 +873,6 @@
           link.classList.remove('active');
           if (link.getAttribute('href') === '#' + current) link.classList.add('active');
         });
-        const navbar = document.getElementById('navbar');
         if (navbar) {
           navbar.style.boxShadow = window.scrollY > 10
             ? '0 4px 20px rgba(0,0,0,0.05)'
@@ -783,8 +882,17 @@
     });
 
     /* =========================================
-       5. LOAD CANDIDATES
+       LOAD CANDIDATES
        ========================================= */
+    function API_escape(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     async function loadCandidates() {
       const loader = document.getElementById('loadingState');
       const errorBox = document.getElementById('errorState');
@@ -813,7 +921,7 @@
         return;
       }
 
-      // Small delay for UX (skeleton min 400ms)
+      // Skeleton minimal 400ms agar tidak "flash"
       await new Promise(function (r) { setTimeout(r, 400); });
 
       loader.style.display = 'none';
@@ -848,15 +956,6 @@
           </div>
         `;
       };
-
-      function API_escape(s) {
-        return String(s == null ? '' : s)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-      }
 
       const sectionRT = document.getElementById('section-rt');
       const sectionPemuda = document.getElementById('section-pemuda');
@@ -895,12 +994,12 @@
       }
     }
 
-    // Expose untuk tombol "Coba Lagi"
+    /* Expose untuk tombol "Coba Lagi" */
     window.__evoteReloadCandidates = loadCandidates;
     loadCandidates();
 
     /* =========================================
-       6. SUBMIT FEEDBACK
+       SUBMIT FEEDBACK
        ========================================= */
     const fbForm = document.getElementById('feedbackForm');
     const btnFeedback = document.getElementById('btnSubmitFeedback');
@@ -947,7 +1046,7 @@
     }
 
     /* =========================================
-       7. CLEANUP
+       CLEANUP
        ========================================= */
     window.addEventListener('beforeunload', function () {
       if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
