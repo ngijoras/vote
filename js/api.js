@@ -1,6 +1,7 @@
 /* ============================================================
-   E-VOTE • api.js
+   E-VOTE • api.js (FULL FIX - FINAL)
    Wrapper HTTP Fetch untuk Google Apps Script.
+   Fitur: Timeout, Network Error Flag, Session Guard.
    ============================================================ */
 window.API = (function () {
   'use strict';
@@ -8,7 +9,7 @@ window.API = (function () {
   /* ⚠️ GANTI URL INI DENGAN URL DEPLOY APPS SCRIPT ANDA (Yang berakhiran /exec) */
   const BASE_URL = 'https://script.google.com/macros/s/AKfycbzmmSTjkNQ4QONiyntL7TQzuoHiEepI3HZqs6CuBV20eb8CnyJfFRqkfT514-y02jsldQ/exec';
   
-  const TIMEOUT_MS = 25000;
+  const TIMEOUT_MS = 25000; // 25 detik
 
   /* ---------- STORAGE HELPER ---------- */
   const LS_TOKEN = 'evote_token';
@@ -46,13 +47,15 @@ window.API = (function () {
     return !!getToken() && !!getUser();
   }
 
-  /* ---------- CORE REQUEST ---------- */
+  /* ============================================================
+   *  CORE REQUEST
+   * ============================================================ */
   async function request(payload, opts) {
     opts = opts || {};
     const method = opts.method || 'POST';
     const timeout = opts.timeout || TIMEOUT_MS;
 
-    // Validasi URL
+    // 1. Validasi URL
     if (!BASE_URL || /XXXX_DEPLOY_ID_XXXX/.test(BASE_URL)) {
       return {
         success: false,
@@ -61,14 +64,16 @@ window.API = (function () {
       };
     }
 
+    // 2. Setup AbortController (untuk timeout)
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = controller ? setTimeout(() => { try { controller.abort(); } catch (_) {} }, timeout) : null;
 
     let res;
     try {
+      // WAJIB text/plain untuk Apps Script
       res = await fetch(BASE_URL, {
         method: method,
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // WAJIB text/plain untuk Apps Script
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload),
         signal: controller ? controller.signal : undefined,
         redirect: 'follow',
@@ -77,6 +82,8 @@ window.API = (function () {
     } catch (err) {
       if (timer) clearTimeout(timer);
       const isAbort = err && (err.name === 'AbortError' || /aborted/i.test(err.message || ''));
+      
+      // ✅ PENTING: Tandai sebagai networkError agar router.js tidak force logout
       return {
         success: false,
         message: isAbort ? 'Koneksi timeout. Periksa internet Anda.' : 'Gagal terhubung ke server.',
@@ -86,10 +93,12 @@ window.API = (function () {
 
     if (timer) clearTimeout(timer);
 
+    // 3. Baca response text
     const text = await (async () => {
       try { return await res.text(); } catch (_) { return ''; }
     })();
 
+    // 4. Cek HTTP Status
     if (!res.ok) {
       return {
         success: false,
@@ -99,7 +108,7 @@ window.API = (function () {
       };
     }
 
-    // Parse JSON (Apps Script kadang return HTML jika terjadi error script)
+    // 5. Parse JSON (Apps Script kadang return HTML jika error script)
     let data;
     try {
       data = JSON.parse(text);
@@ -123,15 +132,18 @@ window.API = (function () {
     return data;
   }
 
-  /* ---------- HTTP METHODS ---------- */
+  /* ============================================================
+   *  HTTP METHODS
+   * ============================================================ */
   async function post(action, data) {
     data = data || {};
     const payload = Object.assign({ action, token: getToken() }, data);
     const res = await request(payload);
 
-    // Auto-logout jika token expired (kecuali dari halaman login/me)
+    // Auto-logout HANYA jika server secara eksplisit bilang token expired
     if (
       res && res.success === false &&
+      !res.networkError && !res.configError && !res.parseError &&
       action !== 'login' && action !== 'me' &&
       typeof res.message === 'string' &&
       /token|expired|kadaluarsa|login ulang|sesi habis/i.test(res.message)
@@ -146,7 +158,7 @@ window.API = (function () {
   async function get(action, params) {
     params = params || {};
     if (!BASE_URL || /XXXX_DEPLOY_ID_XXXX/.test(BASE_URL)) {
-      return { success: false, message: 'URL Backend belum diatur.' };
+      return { success: false, message: 'URL Backend belum diatur.', configError: true };
     }
     const qs = new URLSearchParams(Object.assign({ action, token: getToken() }, params)).toString();
     try {
@@ -155,11 +167,13 @@ window.API = (function () {
       const txt = await res.text();
       try { return JSON.parse(txt); } catch (_) { return { success: false, message: 'Invalid JSON' }; }
     } catch (err) {
-      return { success: false, message: 'Network Error' };
+      return { success: false, message: 'Network Error', networkError: true };
     }
   }
 
-  /* ---------- AUTH METHODS ---------- */
+  /* ============================================================
+   *  AUTH METHODS
+   * ============================================================ */
   async function login(username, password) {
     const res = await request({
       action: 'login',
@@ -177,12 +191,13 @@ window.API = (function () {
     try { await request({ action: 'logout', token: getToken() }); } catch (_) {}
     clearSession();
     if (opts.redirect !== false) {
-      // Redirect ke halaman login
       location.replace(opts.redirectTo || 'login.html');
     }
   }
 
-  /* ---------- PUBLIC API (Untuk index.html) ---------- */
+  /* ============================================================
+   *  PUBLIC API (Untuk index.html)
+   * ============================================================ */
   function getPublicCandidates() {
     return post('candidates.public');
   }
@@ -191,7 +206,9 @@ window.API = (function () {
     return post('settings.public');
   }
 
-  /* ---------- EXPORTS ---------- */
+  /* ============================================================
+   *  EXPORTS
+   * ============================================================ */
   return {
     /* Session */
     token: getToken,

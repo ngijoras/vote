@@ -1,63 +1,54 @@
 /* ============================================================
-   E-VOTE • router.js (FULL FIX - FINAL + COKLIT)
+   E-VOTE • router.js (FULL FIX - FINAL)
    Hash-based SPA Router + Auth Guard + Role Guard + Cleanup.
    ============================================================ */
 (function () {
   'use strict';
 
   /* ============================================================
-   *  1. AUTH GUARD (via Auth helper — support SafeStorage)
+   *  1. AUTH GUARD (Mencegah akses tanpa login)
    * ============================================================ */
-  if (!window.Auth) {
-    console.error('[router] js/auth.js wajib dimuat sebelum router.js');
+  const token   = (window.SafeStorage || localStorage).getItem('evote_token');
+  const userRaw = (window.SafeStorage || localStorage).getItem('evote_user');
+
+  let u = null;
+  try { u = JSON.parse(userRaw); } catch (_) { u = null; }
+
+  // Jika tidak ada sesi sama sekali, tendang ke login.html
+  if (!token || !u || !u.role) {
     location.replace('login.html');
     return;
   }
 
-  if (!Auth.isLoggedIn()) {
-    location.replace('login.html');
-    return;
-  }
-
-  const u = Auth.user() || {};
-  const role = String(u.role || '').toLowerCase();
-
-  if (!role) {
-    console.warn('[router] role kosong, redirect login');
-    location.replace('login.html');
-    return;
-  }
-
-  /* ---------- Verify token server-side (silent, grace on network err) ---------- */
+  /* ============================================================
+   *  2. VERIFIKASI TOKEN SERVER-SIDE (ANTI-LOOPING)
+   * ============================================================ */
   (function verifyToken() {
     if (!window.API || typeof API.post !== 'function') return;
+    
     API.post('me').then((r) => {
+      // ✅ JIKA JARINGAN ERROR / OFFLINE, JANGAN LOGOUT!
+      if (r && r.networkError) {
+        console.warn('[router] Offline / Network Error. Skip verify.');
+        return;
+      }
+      
+      // Jika benar-benar token tidak valid dari server (misal: kedaluwarsa 6 jam)
       if (!r || !r.success) {
-        // Token invalid/expired — Auth akan handle via event 'expired'
-        try { Auth.clearSession(); } catch (_) {}
+        console.warn('[router] Token invalid. Logging out...');
+        (window.SafeStorage || localStorage).removeItem('evote_token');
+        (window.SafeStorage || localStorage).removeItem('evote_user');
         if (window.Cache) Cache.clearAll();
         location.replace('login.html');
       }
     }).catch(() => {
-      // Network error → jangan logout, biarkan user tetap di halaman
-      console.warn('[router] verify network error — offline mode');
+      // Offline mode → biarkan user tetap di halaman
+      console.warn('[router] Verify catch error. Tetap di halaman.');
     });
   })();
 
-  /* ---------- Session expired listener ---------- */
-  if (Auth.on) {
-    Auth.on('expired', function () {
-      try {
-        if (window.UI && UI.toast) {
-          UI.toast('Sesi berakhir. Silakan login ulang.', 'warn', 4000);
-        }
-      } catch (_) {}
-      setTimeout(() => location.replace('login.html'), 600);
-    });
-  }
-
   /* ============================================================
-   *  2. MENUS
+   *  3. MENUS & ROUTES
    * ============================================================ */
   const MENUS = {
     admin: [
@@ -88,9 +79,6 @@
     ],
   };
 
-  /* ============================================================
-   *  3. ROUTES
-   * ============================================================ */
   const ROUTES = {
     /* ---------- ADMIN ---------- */
     'admin':              { title: 'Dashboard',         roles: ['admin'],            fn: () => ViewsAdmin.dashboard() },
@@ -112,16 +100,13 @@
     'petugas/berita-acara': { title: 'Berita Acara',      roles: ['petugas', 'admin'], fn: () => ViewsAdmin.beritaAcara() },
 
     /* ---------- BILIK ---------- */
-    'bilik': { title: 'Bilik Voting', roles: ['bilik'], fn: () => ViewsBilik.dashboard() },
+    'bilik':               { title: 'Bilik Voting',     roles: ['bilik'],            fn: () => ViewsBilik.dashboard() },
 
     /* ---------- COKLIT ---------- */
-    'coklit':        { title: 'Dashboard Coklit', roles: ['coklit'], fn: () => ViewsCoklit.dashboard() },
-    'coklit/voters': { title: 'Coklit Pemilih',   roles: ['coklit'], fn: () => ViewsCoklit.voters() },
+    'coklit':              { title: 'Dashboard Coklit', roles: ['coklit'],           fn: () => ViewsCoklit.dashboard() },
+    'coklit/voters':       { title: 'Coklit Pemilih',   roles: ['coklit'],           fn: () => ViewsCoklit.voters() },
   };
 
-  /* ============================================================
-   *  4. DEFAULT ROUTES
-   * ============================================================ */
   const DEFAULT_ROUTE = {
     admin:   'admin',
     petugas: 'petugas',
@@ -130,7 +115,7 @@
   };
 
   /* ============================================================
-   *  5. CLEANUP (Mencegah Memory Leak & Timer Zombie)
+   *  4. CLEANUP (Mencegah Memory Leak)
    * ============================================================ */
   function cleanup() {
     try { if (window.ViewsAdmin   && ViewsAdmin._clearAllPolls)   ViewsAdmin._clearAllPolls();   } catch (_) {}
@@ -143,16 +128,18 @@
   }
 
   /* ============================================================
-   *  6. SIDEBAR NAV RENDER
+   *  5. SIDEBAR + NAV RENDER
    * ============================================================ */
   function renderNav(activePath) {
     const nav = document.getElementById('nav');
     if (!nav) return;
-    const list = MENUS[role] || [];
+    
+    const roleKey = String(u.role).toLowerCase();
+    const list = MENUS[roleKey] || [];
 
     if (!list.length) {
       nav.innerHTML = `<p class="hint" style="padding:12px;color:var(--err)">
-        Menu tidak tersedia untuk role "${UI.escapeHtml(role)}"
+        Menu tidak tersedia untuk role "${UI.escapeHtml(roleKey)}"
       </p>`;
       return;
     }
@@ -174,7 +161,7 @@
   }
 
   /* ============================================================
-   *  7. MOBILE SIDEBAR
+   *  6. MOBILE SIDEBAR
    * ============================================================ */
   let backdrop = null;
 
@@ -217,7 +204,7 @@
   }
 
   /* ============================================================
-   *  8. CLOCK
+   *  7. CLOCK
    * ============================================================ */
   let clockTimer = null;
 
@@ -241,16 +228,16 @@
   }
 
   /* ============================================================
-   *  9. NAVIGATE
+   *  8. NAVIGATE
    * ============================================================ */
   function parsePath() {
     const raw = (location.hash || '').replace(/^#\/?/, '').trim();
-    // Strip trailing slash
-    return raw.replace(/\/$/, '');
+    return raw.replace(/\/$/, ''); // Strip trailing slash
   }
 
   function defaultPath() {
-    return DEFAULT_ROUTE[role] || 'admin';
+    const roleKey = String(u.role).toLowerCase();
+    return DEFAULT_ROUTE[roleKey] || 'admin';
   }
 
   async function navigate() {
@@ -258,7 +245,6 @@
     const view  = document.getElementById('view');
     const title = document.getElementById('pageTitle');
 
-    /* Empty hash → redirect ke default route */
     if (!path) {
       location.replace('#/' + defaultPath());
       return;
@@ -266,7 +252,7 @@
 
     const route = ROUTES[path];
 
-    /* ---------- 404 ---------- */
+    // ---------- 404 ----------
     if (!route) {
       if (title) title.textContent = 'Tidak Ditemukan';
       document.title = 'Tidak Ditemukan • E-Vote';
@@ -285,27 +271,28 @@
       return;
     }
 
-    /* ---------- Role guard ---------- */
-    if (route.roles && route.roles.indexOf(role) === -1) {
+    // ---------- Role Guard ----------
+    const roleKey = String(u.role).toLowerCase();
+    if (route.roles && route.roles.indexOf(roleKey) === -1) {
       UI.toast('Anda tidak memiliki akses ke halaman ini', 'error');
       location.replace('#/' + defaultPath());
       return;
     }
 
-    /* ---------- Cleanup previous view ---------- */
+    // ---------- Cleanup previous view ----------
     cleanup();
     closeSidebar();
 
-    /* ---------- Update UI meta ---------- */
+    // ---------- Update UI meta ----------
     if (title) title.textContent = route.title;
     document.title = `${route.title} • E-Vote`;
     updateActive(path);
 
-    /* ---------- Scroll to top ---------- */
+    // ---------- Scroll to top ----------
     try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }
     catch (_) { window.scrollTo(0, 0); }
 
-    /* ---------- Render view ---------- */
+    // ---------- Render view ----------
     try {
       await route.fn();
     } catch (err) {
@@ -327,7 +314,7 @@
   }
 
   /* ============================================================
-   *  10. GLOBAL REFRESH
+   *  9. GLOBAL REFRESH
    * ============================================================ */
   let refreshInFlight = false;
 
@@ -357,14 +344,14 @@
   }
 
   /* ============================================================
-   *  11. INIT
+   *  10. INIT
    * ============================================================ */
   function init() {
     /* ---------- User info sidebar ---------- */
     const userNameEl = document.getElementById('userName');
     const userRoleEl = document.getElementById('userRole');
     if (userNameEl) userNameEl.textContent = u.name || u.username || '—';
-    if (userRoleEl) userRoleEl.textContent = role.toUpperCase();
+    if (userRoleEl) userRoleEl.textContent = String(u.role).toUpperCase();
 
     /* ---------- Nav ---------- */
     const currentPath = parsePath() || defaultPath();
@@ -384,7 +371,7 @@
       });
     }
 
-    /* ---------- Logout button (fallback jika Auth.bind tidak jalan) ---------- */
+    /* ---------- Logout button (fallback) ---------- */
     document.querySelectorAll('[data-logout]').forEach((btn) => {
       if (btn.dataset.bound === '1') return;
       btn.dataset.bound = '1';
@@ -397,9 +384,8 @@
           ok = window.confirm('Keluar dari aplikasi?');
         }
         if (ok) {
-          // Auth.logout akan clear session + redirect login
           if (window.Auth && Auth.logout) Auth.logout({ redirect: true });
-          else API.logout();
+          else if (window.API) API.logout();
         }
       });
     });
@@ -425,7 +411,7 @@
   }
 
   /* ============================================================
-   *  12. BOOT
+   *  11. BOOT
    * ============================================================ */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
