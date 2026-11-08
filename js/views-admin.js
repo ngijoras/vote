@@ -1,6 +1,6 @@
 /* ============================================================
    E-VOTE • views-admin.js (FULL FIX - FINAL)
-   Role: ADMIN — Dashboard, Coklit, Kunci Bilik, Flyer Generator.
+   Role: ADMIN — Dashboard, Coklit, Kunci Bilik, Flyer Premium.
    ============================================================ */
 window.ViewsAdmin = (function () {
   'use strict';
@@ -514,7 +514,6 @@ window.ViewsAdmin = (function () {
                 <td>${isTrue(c.active) ? '<span class="badge ok">Ya</span>' : '<span class="badge">Tidak</span>'}</td>
                 <td>
                   <button class="btn-ghost btn-sm" onclick="ViewsAdmin.editCandidate('${esc(c.id)}')">✏️</button>
-                  <!-- ✅ TOMBOL FLYER BARU -->
                   <button class="btn-primary btn-sm" onclick="ViewsAdmin.generateFlyer('${esc(c.id)}')" title="Generate Flyer">🖼️ Flyer</button>
                   <button class="btn-danger btn-sm" onclick="ViewsAdmin.deleteCandidate('${esc(c.id)}')">🗑️</button>
                 </td>
@@ -676,8 +675,8 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  13. GENERATE DIGITAL FLYER (Canvas API)
-   * ============================================================ */
+   *  13. GENERATE DIGITAL FLYER (Premium Modern Design)
+   *  ============================================================ */
   async function generateFlyer(id) {
     let c = null;
     try {
@@ -687,7 +686,7 @@ window.ViewsAdmin = (function () {
 
     if (!c) { UI.toast('Data calon tidak ditemukan', 'error'); return; }
 
-    UI.toast('Membuat flyer...', 'info', 1500);
+    UI.toast('Membuat flyer premium...', 'info', 1500);
 
     // Buat Canvas 1080x1350 (Rasio Instagram 4:5)
     const canvas = document.createElement('canvas');
@@ -695,30 +694,48 @@ window.ViewsAdmin = (function () {
     canvas.height = 1350;
     const ctx = canvas.getContext('2d');
 
-    // 1. Background Gradient
+    // 1. Background Gelap Elegan (Deep Navy)
     const grad = ctx.createLinearGradient(0, 0, 1080, 1350);
-    grad.addColorStop(0, '#0f172a'); // Dark Blue
-    grad.addColorStop(1, '#1e3a8a');
+    grad.addColorStop(0, '#0B1120'); // Sangat Gelap
+    grad.addColorStop(1, '#1E3A8A'); // Biru Tua
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 1080, 1350);
 
-    // 2. Ornamen Geometris
-    ctx.fillStyle = 'rgba(37, 99, 235, 0.2)';
+    // 2. Ornamen Geometris & Floral (Aksen Emas)
+    // Ornamen Kiri Atas
+    ctx.fillStyle = 'rgba(251, 191, 36, 0.08)'; // Emas transparan
     ctx.beginPath();
-    ctx.moveTo(1080, 0);
-    ctx.lineTo(1080, 600);
-    ctx.lineTo(500, 0);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(400, 0);
+    ctx.quadraticCurveTo(200, 200, 0, 400);
+    ctx.fill();
+    // Ornamen Kanan Bawah
+    ctx.beginPath();
+    ctx.moveTo(1080, 1350);
+    ctx.lineTo(680, 1350);
+    ctx.quadraticCurveTo(880, 1150, 1080, 950);
     ctx.fill();
 
-    // 3. Header (Logo & Nama Event)
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText('PEMILIHAN KETUA & WAKIL PEMUDA', 80, 100);
-    ctx.font = '18px sans-serif';
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillText('RUKUN AGAWE SANTOSA (RAS) - NGIJO', 80, 135);
+    // 3. Bingkai Emas (Luxury Border)
+    ctx.strokeStyle = '#FBBF24';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(40, 40, 1000, 1270);
+    // Garis dalam
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(52, 52, 976, 1246);
 
-    // 4. Foto Calon (Bulat)
+    // 4. Header
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FBBF24';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('PEMILIHAN KETUA & WAKIL PEMUDA', 540, 120);
+
+    ctx.fillStyle = '#94A3B8';
+    ctx.font = '16px sans-serif';
+    ctx.fillText('RUKUN AGAWE SANTOSA (RAS) - NGIJO', 540, 155);
+
+    // 5. Foto Calon (Lingkaran dengan Border Emas & Glow)
     if (c.photoUrl) {
       try {
         const img = new Image();
@@ -729,99 +746,130 @@ window.ViewsAdmin = (function () {
           img.onerror = reject;
         });
 
+        // Shadow Glow
+        ctx.shadowColor = '#FBBF24';
+        ctx.shadowBlur = 40;
+        ctx.beginPath();
+        ctx.arc(540, 450, 200, 0, Math.PI * 2, true);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+        ctx.shadowBlur = 0; // Reset
+
+        // Gambar
         ctx.save();
         ctx.beginPath();
-        ctx.arc(540, 450, 220, 0, Math.PI * 2, true);
+        ctx.arc(540, 450, 200, 0, Math.PI * 2, true);
         ctx.closePath();
         ctx.clip();
-        ctx.drawImage(img, 320, 230, 440, 440);
+        ctx.drawImage(img, 340, 250, 400, 400);
         ctx.restore();
 
-        // Border Foto
+        // Border Emas
         ctx.beginPath();
-        ctx.arc(540, 450, 220, 0, Math.PI * 2, true);
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 12;
+        ctx.arc(540, 450, 200, 0, Math.PI * 2, true);
+        ctx.strokeStyle = '#FBBF24';
+        ctx.lineWidth = 8;
+        ctx.stroke();
+
+        // Border Dalam
+        ctx.beginPath();
+        ctx.arc(540, 450, 188, 0, Math.PI * 2, true);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 2;
         ctx.stroke();
       } catch (err) {
         console.warn('Gagal load foto', err);
       }
     }
 
-    // 5. Nomor Urut Badge
-    ctx.fillStyle = '#ef4444';
+    // 6. Nomor Urut Badge (Menjorok)
+    ctx.fillStyle = '#EF4444'; // Merah
     ctx.beginPath();
-    ctx.arc(540, 700, 60, 0, Math.PI * 2);
+    ctx.arc(700, 600, 65, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 48px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(c.noUrut || '-', 540, 720);
+    ctx.font = 'bold 56px sans-serif';
+    ctx.fillText(c.noUrut || '-', 700, 622);
 
-    // 6. Nama & Slogan
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 64px sans-serif';
-    ctx.fillText(String(c.name || '').toUpperCase(), 540, 830);
+    // 7. Nama & Slogan
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 72px serif'; // Font Serif agar elegan
+    ctx.fillText(String(c.name || '').toUpperCase(), 540, 780);
 
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = 'italic 32px sans-serif';
-    ctx.fillText(`"${c.slogan || 'Bersama Membangun Desa'}"`, 540, 890);
+    // Garis Aksen
+    ctx.beginPath();
+    ctx.moveTo(440, 810);
+    ctx.lineTo(640, 810);
+    ctx.strokeStyle = '#FBBF24';
+    ctx.lineWidth = 3;
+    ctx.stroke();
 
-    // 7. Visi Misi (Kotak Kaca / Glassmorphism)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.fillStyle = '#FBBF24';
+    ctx.font = 'italic 32px serif';
+    ctx.fillText(`"${c.slogan || 'Bersama Membangun Desa'}"`, 540, 870);
+
+    // 8. Box Glassmorphism (Visi Misi)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'; // Kaca gelap
     ctx.beginPath();
     if (ctx.roundRect) {
-      ctx.roundRect(80, 950, 920, 280, 20);
+      ctx.roundRect(100, 940, 880, 260, 20);
     } else {
-      ctx.rect(80, 950, 920, 280); // Fallback
+      ctx.rect(100, 940, 880, 260);
     }
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.lineWidth = 2;
     ctx.stroke();
 
     // Teks Visi Misi
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText('VISI:', 120, 1000);
+    ctx.fillStyle = '#FBBF24';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillText('VISI', 140, 990);
     
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = '22px sans-serif';
+    ctx.fillStyle = '#E2E8F0';
+    ctx.font = '20px sans-serif';
     const visiText = c.visi || '-';
     const visiLines = wrapText(ctx, visiText, 800);
     visiLines.slice(0, 2).forEach((line, i) => {
-      ctx.fillText(line, 120, 1040 + (i * 30));
+      ctx.fillText(line, 140, 1025 + (i * 30));
     });
 
-    ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText('MISI UTAMA:', 120, 1120);
+    ctx.fillStyle = '#FBBF24';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillText('MISI UTAMA', 140, 1110);
 
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = '22px sans-serif';
+    ctx.fillStyle = '#E2E8F0';
+    ctx.font = '20px sans-serif';
     const misiText = c.misi ? c.misi.split(';')[0] + '...' : '-';
     const misiLines = wrapText(ctx, misiText, 800);
     misiLines.slice(0, 2).forEach((line, i) => {
-      ctx.fillText(line, 120, 1160 + (i * 30));
+      ctx.fillText(line, 140, 1145 + (i * 30));
     });
 
-    // 8. Footer (Alamat & QR Code dummy)
+    // 9. Footer
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '20px sans-serif';
-    ctx.fillText(`Alamat: ${c.alamat || 'Sekretariat Panitia'}`, 540, 1280);
-    ctx.fillText('E-VOTE 2026 • Suara Anda Menentukan Masa Depan', 540, 1310);
+    ctx.fillStyle = '#94A3B8';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Alamat: ${c.alamat || 'Sekretariat Panitia'}`, 540, 1260);
 
-    // 9. Download Flyer
+    ctx.fillStyle = '#FBBF24';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('SUARA ANDA MENENTUKAN MASA DEPAN', 540, 1290);
+
+    // 10. Download Flyer
     const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
     const a = document.createElement('a');
     a.href = dataUrl;
-    a.download = `Flyer_${String(c.name || 'Calon').replace(/\s+/g, '_')}.jpg`;
+    a.download = `Flyer_Premium_${String(c.name || 'Calon').replace(/\s+/g, '_')}.jpg`;
     a.click();
     
-    UI.toast('Flyer berhasil diunduh!', 'success');
+    UI.toast('Flyer premium berhasil diunduh!', 'success');
   }
 
   // Helper untuk memotong teks panjang agar rapi di canvas
