@@ -1,6 +1,7 @@
 /* ============================================================
-   E-VOTE • views-petugas.js (FULL FIX - AUTO VOICE)
+   E-VOTE • views-petugas.js (FULL FIX - FINAL)
    Role: PETUGAS (asisten panitia)
+   Menu: Dashboard • Absensi (scan) • Antrian & Bilik
    ============================================================ */
 window.ViewsPetugas = (function () {
   'use strict';
@@ -256,11 +257,10 @@ window.ViewsPetugas = (function () {
       return;
     }
 
-    // --- PIC U SUARA ---
+    // --- SUARA OTOMATIS ---
     const boothName = r.voter.booth || null;
     const voterName = r.voter.name;
     
-    // Beri jeda 1 detik agar UI selesai render sebelum bicara
     setTimeout(() => {
       try {
         if (boothName) {
@@ -315,7 +315,7 @@ window.ViewsPetugas = (function () {
   }
 
   /* ============================================================
-   *  ANTRIAN & BILIK
+   *  ANTRIAN & BILIK (REAL-TIME INDICATOR)
    * ============================================================ */
   async function queue() {
     clearAllPolls(); safeQRStop();
@@ -382,20 +382,29 @@ window.ViewsPetugas = (function () {
         bList.innerHTML = `<p class="hint">Belum ada bilik.</p>`;
       } else {
         bList.innerHTML = boothsCache.map(b => {
-          const occupied = !!b.currentVoterId;
-          const canCall  = !occupied && waitingCache.length > 0;
+          const active = !!b.currentVoterId;
+          // Cek apakah bilik sedang online (ping dalam 90 detik terakhir)
+          const isOnline = b.lastActive && (Date.now() - b.lastActive < 90000);
+          
+          let statusText = isOnline ? (active ? 'Sedang Memilih' : 'Siap Menerima') : 'Offline';
+          let statusClass = isOnline ? (active ? 'warn' : 'ok') : 'danger';
+          let dotClass = isOnline ? 'online' : 'offline';
+          let rowClass = isOnline ? (active ? 'occupied' : 'ready') : '';
+          
+          const canCall = isOnline && !active && waitingCache.length > 0;
+
           return `
-            <div class="booth-row ${occupied ? 'occupied' : 'ready'}">
+            <div class="booth-row ${rowClass}" style="${!isOnline ? 'opacity:0.6;' : ''}">
+              <span class="dot-indicator ${dotClass}" title="${isOnline ? 'Terhubung' : 'Belum Login'}"></span>
               <strong>${esc(b.name)}</strong>
-              <span class="badge ${occupied ? 'occupied' : 'ready'}">
-                ${occupied ? 'Terisi' : 'Siap'}
-              </span>
+              <span class="badge ${statusClass}">${statusText}</span>
+              
               <div class="row" style="margin:0;margin-left:auto;gap:4px">
                 ${canCall
                   ? `<button class="btn-primary btn-sm" type="button"
                         onclick="ViewsPetugas.callNext('${esc(b.id)}')">📢 Panggil</button>`
                   : ''}
-                ${occupied
+                ${active
                   ? `<button class="btn-ghost btn-sm" type="button"
                         onclick="ViewsPetugas.freeBooth('${esc(b.id)}')">Kosongkan</button>`
                   : ''}

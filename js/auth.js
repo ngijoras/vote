@@ -1,11 +1,11 @@
 /* ============================================================
-   E-VOTE • auth.js (FULL FIX)
+   E-VOTE • auth.js (FULL FIX - FINAL + COKLIT)
    Layer autentikasi di atas js/api.js.
 
    Fitur:
    - Session get/set/clear — sinkron dengan SafeStorage
    - Login/logout wrapper (delegate ke API)
-   - Role helpers: hasRole, isAdmin, isPetugas, isBilik
+   - Role helpers: hasRole, isAdmin, isPetugas, isBilik, isCoklit
    - Page guard: requireLogin, requireRole
    - Verify async ke server (endpoint 'me')
    - Heartbeat optional — auto-verify periodik
@@ -20,7 +20,9 @@
 window.Auth = (function () {
   'use strict';
 
-  /* ---------- Storage keys (sinkron dengan api.js) ---------- */
+  /* ============================================================
+   *  CONSTANTS
+   * ============================================================ */
   const LS_TOKEN    = 'evote_token';
   const LS_USER     = 'evote_user';
   const LS_EXP      = 'evote_exp';
@@ -29,20 +31,35 @@ window.Auth = (function () {
   const DEFAULT_LOGIN_PAGE = 'login.html';
   const DEFAULT_APP_PAGE   = 'app.html';
 
-  /* ---------- Storage resolver (SafeStorage → localStorage) ---------- */
+  /* Route fallback per-role (dipakai requireRole) */
+  const ROLE_HOME = {
+    admin:   '#/admin',
+    petugas: '#/petugas',
+    bilik:   '#/bilik',
+    coklit:  '#/coklit',
+  };
+
+  /* ============================================================
+   *  STORAGE RESOLVER (SafeStorage → localStorage)
+   * ============================================================ */
   const Store = (window.SafeStorage || window.localStorage);
 
   function lsGet(key) {
-    try { return Store.getItem(key); } catch (_) { return null; }
+    try { return Store.getItem(key); }
+    catch (_) { return null; }
   }
   function lsSet(key, val) {
-    try { Store.setItem(key, val); } catch (_) {}
+    try { Store.setItem(key, String(val)); }
+    catch (_) {}
   }
   function lsDel(key) {
-    try { Store.removeItem(key); } catch (_) {}
+    try { Store.removeItem(key); }
+    catch (_) {}
   }
 
-  /* ---------- API resolver (lazy) ---------- */
+  /* ============================================================
+   *  API RESOLVER (lazy — jangan throw saat module load)
+   * ============================================================ */
   function api() {
     if (!window.API) {
       throw new Error('js/auth.js memerlukan js/api.js dimuat lebih dulu');
@@ -140,6 +157,7 @@ window.Auth = (function () {
   function isAdmin()   { return hasRole('admin'); }
   function isPetugas() { return hasRole('petugas'); }
   function isBilik()   { return hasRole('bilik'); }
+  function isCoklit()  { return hasRole('coklit'); }
 
   /* ============================================================
    *  REDIRECT HELPERS
@@ -150,8 +168,14 @@ window.Auth = (function () {
       : DEFAULT_LOGIN_PAGE;
     location.replace(url);
   }
+
   function redirectToApp() {
     location.replace(DEFAULT_APP_PAGE);
+  }
+
+  function homeForRole(r) {
+    const key = String(r || role()).toLowerCase();
+    return ROLE_HOME[key] || DEFAULT_APP_PAGE;
   }
 
   /* ============================================================
@@ -169,12 +193,7 @@ window.Auth = (function () {
     if (!requireLogin(opts)) return false;
     if (hasRole(roles)) return true;
     if (opts.redirect !== false) {
-      const fallback = {
-        admin:   '#/admin',
-        petugas: '#/petugas',
-        bilik:   '#/bilik',
-      }[role()] || DEFAULT_APP_PAGE;
-      location.replace(fallback);
+      location.replace(homeForRole(role()));
     }
     return false;
   }
@@ -273,25 +292,32 @@ window.Auth = (function () {
     return lsGet(LS_REMEMBER) || '';
   }
   function saveRememberedUsername(u) {
-    if (u) lsSet(LS_REMEMBER, String(u));
+    if (u) lsSet(LS_REMEMBER, u);
     else   lsDel(LS_REMEMBER);
   }
 
   /* ============================================================
    *  EVENT SYSTEM
    * ============================================================ */
-  const listeners = { login: [], logout: [], change: [], expired: [] };
+  const listeners = {
+    login:   [],
+    logout:  [],
+    change:  [],
+    expired: [],
+  };
 
   function on(event, cb) {
     if (!listeners[event] || typeof cb !== 'function') return function () {};
     listeners[event].push(cb);
     return function () { off(event, cb); };
   }
+
   function off(event, cb) {
     if (!listeners[event]) return;
     const i = listeners[event].indexOf(cb);
     if (i >= 0) listeners[event].splice(i, 1);
   }
+
   function emit(event, payload) {
     if (!listeners[event]) return;
     listeners[event].slice().forEach(function (cb) {
@@ -363,6 +389,7 @@ window.Auth = (function () {
     isAdmin: isAdmin,
     isPetugas: isPetugas,
     isBilik: isBilik,
+    isCoklit: isCoklit,
 
     /* Guards */
     requireLogin: requireLogin,
@@ -371,6 +398,7 @@ window.Auth = (function () {
     /* Redirects */
     redirectToLogin: redirectToLogin,
     redirectToApp: redirectToApp,
+    homeForRole: homeForRole,
 
     /* Auth */
     login: login,
