@@ -1,7 +1,7 @@
 /* ============================================================
    E-VOTE • views-petugas.js (FULL FIX - FINAL)
    Role: PETUGAS (asisten panitia)
-   Fitur: Scan QR, Absensi TTD, Kunci Bilik, Suara TTS.
+   Fitur: Preload, Auto-Sync, Kunci Bilik, Suara TTS.
    ============================================================ */
 window.ViewsPetugas = (function () {
   'use strict';
@@ -10,6 +10,12 @@ window.ViewsPetugas = (function () {
   const me   = () => API.user() || {};
   const isTrue = (v) => v === true || String(v) === 'TRUE' || String(v) === 'true';
   const esc = (s) => UI.escapeHtml(s);
+
+  /* ---------- Safe fetch (Gunakan Cache untuk Preload) ---------- */
+  async function fetchData(action, params, force) {
+    if (window.Cache) return Cache.fetchApi(action, params, force);
+    return API.post(action, params);
+  }
 
   /* ---------- Polling ---------- */
   const polls = {};
@@ -20,7 +26,7 @@ window.ViewsPetugas = (function () {
       if (!document.getElementById(id)) { clearPoll(id); return; }
       if (busy) return;
       busy = true;
-      try { await fn(); } catch (e) { console.error(e); } finally { busy = false; }
+      try { await fn(); } catch (e) { console.error('[petugas poll]', e); } finally { busy = false; }
     }, ms);
   }
   function clearPoll(id) { if (polls[id]) { clearInterval(polls[id]); delete polls[id]; } }
@@ -40,22 +46,26 @@ window.ViewsPetugas = (function () {
     clearAllPolls();
     safeQRStop();
     const el = view();
+    if (!el) return;
+    
     el.innerHTML = `<div id="petugasDash">${UI.skeleton(4)}</div>`;
     await loadDash();
+    setPoll('petugasDash', 8000, loadDash); // Realtime 8 detik
   }
 
   async function loadDash() {
     const area = document.getElementById('petugasDash');
     if (!area) return;
 
+    // ✅ Gunakan fetchData (Cache) dengan forceRefresh true
     const [sumRes, votersRes, boothsRes] = await Promise.all([
-      API.post('dash.summary'),
-      API.post('list', { sheet: 'voters' }),
-      API.post('booth.status'),
+      fetchData('dash.summary', {}, true),
+      fetchData('list', { sheet: 'voters' }, true),
+      fetchData('booth.status', {}, true),
     ]);
 
-    if (!sumRes.success) {
-      area.innerHTML = `<div class="card"><p class="hint" style="color:var(--err)">${esc(sumRes.message || 'Gagal memuat data')}</p></div>`;
+    if (!sumRes || !sumRes.success) {
+      area.innerHTML = `<div class="card"><p class="hint" style="color:var(--err)">${esc(sumRes && sumRes.message || 'Gagal memuat data')}</p></div>`;
       return;
     }
 
@@ -97,6 +107,8 @@ window.ViewsPetugas = (function () {
     checkinState = { active: false, voter: null, pad: null };
 
     const el = view();
+    if (!el) return;
+
     el.innerHTML = `
       <div class="card" id="scanCard">
         <div class="row-between">
@@ -184,7 +196,7 @@ window.ViewsPetugas = (function () {
   async function handleCode(code) {
     if (checkinState.active) return;
 
-    const res = await API.post('voters.byCode', { code });
+    const res = await API.post('voters.byCode', { code }); // Bypass cache untuk data terbaru
     if (!res.success) {
       UI.toast(res.message || 'Kode tidak valid', 'error');
       restartScanAfterDelay();
@@ -321,6 +333,8 @@ window.ViewsPetugas = (function () {
     clearAllPolls(); safeQRStop();
 
     const el = view();
+    if (!el) return;
+
     el.innerHTML = `
       <div class="grid-2">
         <div class="card">
@@ -354,15 +368,16 @@ window.ViewsPetugas = (function () {
     `;
 
     await refreshQueue();
-    setPoll('boothList', 3000, refreshQueue);
+    setPoll('boothList', 3000, refreshQueue); // Update status bilik tiap 3 detik
   }
 
   async function refreshQueue() {
+    // ✅ Gunakan fetchData (Cache) dengan forceRefresh true
     const [bRes, vRes] = await Promise.all([
-      API.post('booth.status'),
-      API.post('list', { sheet: 'voters' }),
+      fetchData('booth.status', {}, true),
+      fetchData('list', { sheet: 'voters' }, true),
     ]);
-    if (!bRes.success || !vRes.success) return;
+    if (!bRes || !bRes.success || !vRes || !vRes.success) return;
 
     boothsCache = bRes.data || [];
     const voters = vRes.data || [];
@@ -388,7 +403,7 @@ window.ViewsPetugas = (function () {
       } else {
         bList.innerHTML = boothsCache.map(b => {
           const active = !!b.currentVoterId;
-          const authorized = isTrue(b.isAuthorized); // ✅ Cek Kunci
+          const authorized = isTrue(b.isAuthorized);
           const isOnline = b.lastActive && (Date.now() - b.lastActive < 90000);
           
           let statusText = isOnline ? (active ? 'Sedang Memilih' : (authorized ? 'Siap Menerima' : 'Terkunci')) : 'Offline';
@@ -434,7 +449,6 @@ window.ViewsPetugas = (function () {
     }
   }
 
-  /* ✅ FITUR KUNCI BILIK */
   async function authorizeBooth(boothId, status) {
     try {
       const r = await API.post('booth.authorize', { boothId, isAuthorized: status });
@@ -460,7 +474,6 @@ window.ViewsPetugas = (function () {
       UI.toast('Tidak ada pemilih menunggu', 'warn');
       return;
     }
-    // Hanya pilih bilik yang kosong DAN sudah dibuka (isAuthorized = true)
     const freeBooths = boothsCache.filter(b => !b.currentVoterId && isTrue(b.isAuthorized));
     if (!freeBooths.length) {
       UI.toast('Tidak ada bilik kosong yang terbuka. Buka bilik terlebih dahulu.', 'warn');

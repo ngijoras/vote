@@ -1,7 +1,7 @@
 /* ============================================================
    E-VOTE • views-bilik.js (FULL FIX - FINAL)
    Role: BILIK (Antarmuka Bilik Suara)
-   Fitur: Kunci Bilik (Gatekeeper), Kontrol TTS, Anti Double-Vote.
+   Fitur: Preload, Auto-Sync, Kunci Bilik, Kontrol TTS.
    ============================================================ */
 window.ViewsBilik = (function () {
   'use strict';
@@ -38,6 +38,12 @@ window.ViewsBilik = (function () {
   function view() { return document.getElementById('view'); }
   const isTrue = (v) => v === true || String(v) === 'TRUE' || String(v) === 'true';
   function esc(s) { return UI.escapeHtml(s); }
+
+  /* ---------- Safe fetch (Gunakan Cache untuk Preload) ---------- */
+  async function fetchData(action, params, force) {
+    if (window.Cache) return Cache.fetchApi(action, params, force);
+    return API.post(action, params);
+  }
 
   function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
   function stopPing() { if (pingTimer) { clearInterval(pingTimer); pingTimer = null; } }
@@ -110,6 +116,7 @@ window.ViewsBilik = (function () {
     if (btnCamOn) btnCamOn.onclick = () => startCamera();
     if (btnCamSnap) btnCamSnap.onclick = () => capturePhoto(false);
 
+    // ✅ Preload Settings & Candidates menggunakan Cache
     await loadSettings();
     await loadCandidates();
 
@@ -125,14 +132,14 @@ window.ViewsBilik = (function () {
 
   async function loadSettings() {
     try {
-      const r = await API.post('settings.public');
+      const r = await fetchData('settings.public', {}, true); // Force true agar selalu fresh
       if (r && r.success) state.settings = r.data || {};
     } catch (_) {}
   }
 
   async function loadCandidates() {
     try {
-      const r = await API.post('list', { sheet: 'candidates' });
+      const r = await fetchData('list', { sheet: 'candidates' }, true);
       if (!r || !r.success) return;
       state.candidates = (r.data || []).filter(c => isTrue(c.active));
     } catch (_) {
@@ -152,7 +159,8 @@ window.ViewsBilik = (function () {
 
     loadingBooth = true;
     try {
-      const r = await API.post('booth.status');
+      // ✅ Gunakan fetchData (Cache) dengan forceRefresh true agar status kunci terbaru didapat
+      const r = await fetchData('booth.status', {}, true);
       if (!r || !r.success) return;
 
       const booth = (r.data || []).find(b => String(b.id) === String(me.boothId));
@@ -172,7 +180,6 @@ window.ViewsBilik = (function () {
       if (booth.currentVoterId) {
         await loadActiveVoter(booth.currentVoterId);
       } else {
-        // Jika sudah di-authorize tapi kosong, tampilkan "Menunggu Pemilih"
         clearActiveVoter();
       }
     } catch (err) {
@@ -188,14 +195,13 @@ window.ViewsBilik = (function () {
 
     loadingVoter = true;
     try {
-      const r = await API.post('list', { sheet: 'voters', filter: { id: voterId } });
+      const r = await fetchData('list', { sheet: 'voters', filter: { id: voterId } }, true);
       if (!r || !r.success || !r.data || !r.data.length) {
         UI.toast('Gagal memuat data pemilih', 'error');
         return;
       }
       const voter = r.data[0];
 
-      // Jika sudah voting, lepas dari bilik
       if (isTrue(voter.voted)) {
         try { await API.post('booth.setCurrent', { boothId: state.booth.id, voterId: '', name: state.booth.name || '' }); } catch (_) {}
         return;
@@ -205,7 +211,6 @@ window.ViewsBilik = (function () {
       state.photo = null;
       renderVoting();
 
-      // Jika kamera sudah aktif, ambil foto otomatis
       if (cameraStream) setTimeout(() => capturePhoto(true), 700);
     } catch (err) {
       console.warn('[bilik] loadActiveVoter error:', err);
@@ -260,7 +265,6 @@ window.ViewsBilik = (function () {
     if (card) card.style.display = active ? 'block' : 'none';
   }
 
-  /* ✅ RENDER: Menunggu Pemilih (Bilik Terbuka) */
   function renderWaiting() {
     const voteArea = document.getElementById('voteArea');
     if (!voteArea) return;
@@ -272,7 +276,6 @@ window.ViewsBilik = (function () {
       </div>`;
   }
 
-  /* ✅ RENDER: Terkunci (Belum Ada Komando) */
   function renderLocked() {
     const voteArea = document.getElementById('voteArea');
     if (!voteArea) return;

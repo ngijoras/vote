@@ -92,7 +92,7 @@ window.ViewsCoklit = (function () {
     const area = document.getElementById('coklitDash'); if (!area) return;
 
     let res;
-    try { res = await fetchData('list', { sheet: 'voters' }); }
+    try { res = await fetchData('list', { sheet: 'voters' }, true); } // Force refresh untuk dashboard
     catch (_) { return; }
     if (!res || !res.success) return;
 
@@ -327,7 +327,7 @@ window.ViewsCoklit = (function () {
 
     let list = res.data || [];
 
-    /* ✅ FILTER: coklit hanya lihat RT-nya sendiri (Gunakan normalizeRt) */
+    /* ✅ FILTER: coklit hanya lihat RT-nya sendiri */
     const myRtValue = myRt();
     if (myRtValue) {
       list = list.filter(v => normalizeRt(v.rt) === myRtValue);

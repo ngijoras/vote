@@ -1,5 +1,5 @@
 /* ============================================================
-   E-VOTE • cache.js (FULL FIX - SMART PRELOAD)
+   E-VOTE • cache.js (FULL FIX - FINAL)
    Fitur: TTL, Auto-Index, Stale-While-Revalidate, PreloadAll.
    ============================================================ */
 window.Cache = (function () {
@@ -8,7 +8,7 @@ window.Cache = (function () {
   const Store = (window.SafeStorage || window.localStorage);
   const PREFIX = 'evote_cache_';
   const INDEX_KEY = PREFIX + 'index';
-  const TTL = 5 * 60 * 1000; // 5 menit
+  const TTL = 5 * 60 * 1000; // 5 menit (data dianggap basi setelah 5 menit)
 
   /* ---------- Index Helpers (Agar bisa clearAll) ---------- */
   function _addToIndex(key) {
@@ -62,7 +62,9 @@ window.Cache = (function () {
     } catch (_) { return null; }
   }
 
-  /* ---------- Clear Cache ---------- */
+  /* ============================================================
+   *  CLEAR ALL (Wajib dipanggil saat Logout / Ganti Role)
+   *  ============================================================ */
   const bgTimers = {};
 
   function clearAll() {
@@ -71,7 +73,7 @@ window.Cache = (function () {
       idx.forEach(key => Store.removeItem(key));
       Store.removeItem(INDEX_KEY);
       
-      // Batalkan semua antrean background sync
+      // Batalkan semua antrean background sync yang masih berjalan
       Object.keys(bgTimers).forEach(k => { 
         clearTimeout(bgTimers[k]); 
         delete bgTimers[k]; 
@@ -79,7 +81,9 @@ window.Cache = (function () {
     } catch (_) {}
   }
 
-  /* ---------- Smart Fetch API ---------- */
+  /* ============================================================
+   *  SMART FETCH API (Stale-While-Revalidate)
+   *  ============================================================ */
   async function fetchApi(action, params, forceRefresh) {
     const key = getKey(action, params);
     
@@ -87,7 +91,7 @@ window.Cache = (function () {
     if (!forceRefresh) {
       const cached = get(action, params);
       if (cached) {
-        // Tampilkan data cache, lalu perbarui diam-diam di background
+        // Tampilkan data cache (instan), lalu perbarui diam-diam di background
         _triggerBackgroundSync(action, params, key);
         return cached;
       }
@@ -99,9 +103,9 @@ window.Cache = (function () {
     return res;
   }
 
-  /* ---------- Background Sync (Stale-While-Revalidate) ---------- */
+  /* ---------- Background Sync (Update di Latar Belakang) ---------- */
   function _triggerBackgroundSync(action, params, key) {
-    if (bgTimers[key]) return; // Cegah multiple request
+    if (bgTimers[key]) return; // Cegah multiple request untuk key yang sama
     
     bgTimers[key] = setTimeout(async () => {
       delete bgTimers[key];
@@ -116,7 +120,9 @@ window.Cache = (function () {
     }, 2000); // Delay 2 detik agar tidak bentrok dengan render awal
   }
 
-  /* ---------- Preload All (Saat pertama kali login) ---------- */
+  /* ============================================================
+   *  PRELOAD ALL (Sedot Semua Data Saat Login)
+   *  ============================================================ */
   async function preloadAll() {
     if (!window.API || !API.token || !API.token()) return;
     
