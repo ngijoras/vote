@@ -1,6 +1,6 @@
 /* ============================================================
    E-VOTE • views-admin.js (FULL FIX - FINAL)
-   Role: ADMIN — Semua menu + Sinkron Coklit per RT.
+   Role: ADMIN — Preload Cache + Sinkron Coklit per RT.
    ============================================================ */
 window.ViewsAdmin = (function () {
   'use strict';
@@ -11,13 +11,13 @@ window.ViewsAdmin = (function () {
   const isTrue = (v) => v === true || String(v) === 'TRUE' || String(v) === 'true';
   const esc    = (s) => UI.escapeHtml(s);
 
-  /* ---------- Safe fetch (pakai Cache jika ada) ---------- */
+  /* ---------- Safe fetch (Gunakan Cache untuk Preload) ---------- */
   async function fetchData(action, params, force) {
     if (window.Cache) return Cache.fetchApi(action, params, force);
     return API.post(action, params);
   }
 
-  /* ---------- Polling helper ---------- */
+  /* ---------- Polling helper (Background Sync) ---------- */
   const polls = {};
   function setPoll(id, ms, fn) {
     clearPoll(id);
@@ -45,21 +45,21 @@ window.ViewsAdmin = (function () {
     try { if (window.QR && QR.stop) QR.stop(); } catch (_) {}
   }
 
-  /* ---------- Persistent state ---------- */
+  /* ---------- Persistent state (Filter) ---------- */
   const state = {
     voterRtFilter: '',
     voterCoklitFilter: '',
   };
 
   /* ============================================================
-   *  1. DASHBOARD
+   *  1. DASHBOARD ADMIN
    * ============================================================ */
   async function dashboard() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
     const el = view(); if (!el) return;
     el.innerHTML = `<div id="adminDash">${UI.skeleton(4)}</div>`;
     await loadDashboard();
-    setPoll('adminDash', 8000, loadDashboard);
+    setPoll('adminDash', 8000, loadDashboard); // Realtime 8s
   }
 
   async function loadDashboard() {
@@ -68,9 +68,9 @@ window.ViewsAdmin = (function () {
     let sumRes, votersRes, coklitRes;
     try {
       [sumRes, votersRes, coklitRes] = await Promise.all([
-        fetchData('dash.summary', {}, true),
+        fetchData('dash.summary', {}),
         fetchData('list', { sheet: 'voters' }),
-        fetchData('coklit.report', {}, true),
+        fetchData('coklit.report', {}),
       ]);
     } catch (err) { return; }
 
@@ -247,9 +247,7 @@ window.ViewsAdmin = (function () {
     };
 
     await loadVoters();
-
-    /* ✅ Auto-refresh 15s untuk sinkron dengan coklit */
-    setPoll('voterList', 15000, () => loadVoters(true));
+    setPoll('voterList', 15000, () => loadVoters(true)); // Sinkronisasi background
   }
 
   async function loadVoters(forceRefresh) {
@@ -307,7 +305,6 @@ window.ViewsAdmin = (function () {
       return;
     }
 
-    /* Hitung statistik coklit untuk info bar */
     const totalValid   = list.filter(v => v.coklitStatus === 'valid').length;
     const totalInvalid = list.filter(v => v.coklitStatus === 'invalid').length;
     const totalPending = list.length - totalValid - totalInvalid;
@@ -426,9 +423,7 @@ window.ViewsAdmin = (function () {
             v.coklitStatus && v.coklitStatus !== 'pending';
 
           UI.toast(
-            wasReset
-              ? 'Tersimpan — status coklit di-reset ke "Belum"'
-              : 'Tersimpan',
+            wasReset ? 'Tersimpan — status coklit di-reset ke "Belum"' : 'Tersimpan',
             'success'
           );
           if (window.Cache) Cache.clearAll();
@@ -1092,7 +1087,7 @@ window.ViewsAdmin = (function () {
     if (!area) return;
 
     let vr = await fetchData('list', { sheet: 'voters' });
-    let sr = await fetchData('settings.public', {}, true);
+    let sr = await fetchData('settings.public', {});
     if (!vr || !vr.success) { area.innerHTML = `<p class="hint">Gagal memuat.</p>`; return; }
 
     const settings = (sr && sr.success && sr.data) || {};
@@ -1255,7 +1250,7 @@ window.ViewsAdmin = (function () {
 
   async function loadResults() {
     const area = document.getElementById('resultsArea'); if (!area) return;
-    let r = await fetchData('results', {}, true);
+    let r = await fetchData('results', {});
     if (!r || !r.success) return;
 
     const groups = r.groups || {};
@@ -1581,7 +1576,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  9. SETTINGS + BACKUP
+   *  9. SETTINGS
    * ============================================================ */
   async function settings() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
@@ -1798,13 +1793,13 @@ window.ViewsAdmin = (function () {
         <div id="logList" style="margin-top:12px">${UI.skeleton(4)}</div>
       </div>
     `;
-    document.getElementById('btnRefreshLog').onclick = () => loadLogs();
+    document.getElementById('btnRefreshLog').onclick = () => loadLogs(true);
     await loadLogs();
   }
 
-  async function loadLogs() {
+  async function loadLogs(forceRefresh) {
     const area = document.getElementById('logList'); if (!area) return;
-    let r = await fetchData('logs.list', {}, true);
+    let r = await fetchData('logs.list', {}, forceRefresh === true);
     if (!r || !r.success) {
       area.innerHTML = `<p class="hint">Gagal memuat log.</p>`;
       return;

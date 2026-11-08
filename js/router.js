@@ -1,12 +1,13 @@
 /* ============================================================
    E-VOTE • router.js (FULL FIX - FINAL)
    Hash-based SPA Router + Auth Guard + Role Guard + Cleanup.
+   Fitur: Instant Skeleton, Anti-Looping Offline, Preload Sync.
    ============================================================ */
 (function () {
   'use strict';
 
   /* ============================================================
-   *  1. AUTH GUARD (Mencegah akses tanpa login)
+   *  1. AUTH GUARD & ANTI-LOOPING
    * ============================================================ */
   const token   = (window.SafeStorage || localStorage).getItem('evote_token');
   const userRaw = (window.SafeStorage || localStorage).getItem('evote_user');
@@ -14,15 +15,13 @@
   let u = null;
   try { u = JSON.parse(userRaw); } catch (_) { u = null; }
 
-  // Jika tidak ada sesi sama sekali, tendang ke login.html
+  // Tendang ke login HANYA jika benar-benar tidak ada token
   if (!token || !u || !u.role) {
     location.replace('login.html');
     return;
   }
 
-  /* ============================================================
-   *  2. VERIFIKASI TOKEN SERVER-SIDE (ANTI-LOOPING)
-   * ============================================================ */
+  /* ---------- Verify token server-side (Anti-Looping) ---------- */
   (function verifyToken() {
     if (!window.API || typeof API.post !== 'function') return;
     
@@ -33,7 +32,7 @@
         return;
       }
       
-      // Jika benar-benar token tidak valid dari server (misal: kedaluwarsa 6 jam)
+      // Jika server benar-benar bilang token tidak valid (misal: kadaluarsa 6 jam)
       if (!r || !r.success) {
         console.warn('[router] Token invalid. Logging out...');
         (window.SafeStorage || localStorage).removeItem('evote_token');
@@ -42,13 +41,13 @@
         location.replace('login.html');
       }
     }).catch(() => {
-      // Offline mode → biarkan user tetap di halaman
+      // Catch error jaringan → biarkan user tetap di halaman
       console.warn('[router] Verify catch error. Tetap di halaman.');
     });
   })();
 
   /* ============================================================
-   *  3. MENUS & ROUTES
+   *  2. MENUS & ROUTES
    * ============================================================ */
   const MENUS = {
     admin: [
@@ -80,7 +79,7 @@
   };
 
   const ROUTES = {
-    /* ---------- ADMIN ---------- */
+    /* ADMIN */
     'admin':              { title: 'Dashboard',         roles: ['admin'],            fn: () => ViewsAdmin.dashboard() },
     'admin/voters':       { title: 'Data Pemilih',      roles: ['admin'],            fn: () => ViewsAdmin.voters() },
     'admin/candidates':   { title: 'Data Calon',        roles: ['admin'],            fn: () => ViewsAdmin.candidates() },
@@ -92,17 +91,17 @@
     'admin/logs':         { title: 'Log Aktivitas',     roles: ['admin'],            fn: () => ViewsAdmin.logs() },
     'admin/settings':     { title: 'Pengaturan Sistem', roles: ['admin'],            fn: () => ViewsAdmin.settings() },
 
-    /* ---------- PETUGAS ---------- */
+    /* PETUGAS */
     'petugas':              { title: 'Dashboard Petugas', roles: ['petugas', 'admin'], fn: () => ViewsPetugas.dashboard() },
     'petugas/attendance':   { title: 'Absensi Pemilih',   roles: ['petugas', 'admin'], fn: () => ViewsPetugas.attendance() },
     'petugas/queue':        { title: 'Antrian & Bilik',   roles: ['petugas', 'admin'], fn: () => ViewsPetugas.queue() },
     'petugas/results':      { title: 'Hasil Real-Time',   roles: ['petugas', 'admin'], fn: () => ViewsAdmin.results() },
     'petugas/berita-acara': { title: 'Berita Acara',      roles: ['petugas', 'admin'], fn: () => ViewsAdmin.beritaAcara() },
 
-    /* ---------- BILIK ---------- */
+    /* BILIK */
     'bilik':               { title: 'Bilik Voting',     roles: ['bilik'],            fn: () => ViewsBilik.dashboard() },
 
-    /* ---------- COKLIT ---------- */
+    /* COKLIT */
     'coklit':              { title: 'Dashboard Coklit', roles: ['coklit'],           fn: () => ViewsCoklit.dashboard() },
     'coklit/voters':       { title: 'Coklit Pemilih',   roles: ['coklit'],           fn: () => ViewsCoklit.voters() },
   };
@@ -115,7 +114,7 @@
   };
 
   /* ============================================================
-   *  4. CLEANUP (Mencegah Memory Leak)
+   *  3. CLEANUP (Mencegah Memory Leak)
    * ============================================================ */
   function cleanup() {
     try { if (window.ViewsAdmin   && ViewsAdmin._clearAllPolls)   ViewsAdmin._clearAllPolls();   } catch (_) {}
@@ -128,7 +127,7 @@
   }
 
   /* ============================================================
-   *  5. SIDEBAR + NAV RENDER
+   *  4. SIDEBAR + NAV RENDER
    * ============================================================ */
   function renderNav(activePath) {
     const nav = document.getElementById('nav');
@@ -161,7 +160,7 @@
   }
 
   /* ============================================================
-   *  6. MOBILE SIDEBAR
+   *  5. MOBILE SIDEBAR
    * ============================================================ */
   let backdrop = null;
 
@@ -204,7 +203,7 @@
   }
 
   /* ============================================================
-   *  7. CLOCK
+   *  6. CLOCK
    * ============================================================ */
   let clockTimer = null;
 
@@ -228,7 +227,7 @@
   }
 
   /* ============================================================
-   *  8. NAVIGATE
+   *  7. NAVIGATE (INSTANT RENDER)
    * ============================================================ */
   function parsePath() {
     const raw = (location.hash || '').replace(/^#\/?/, '').trim();
@@ -292,6 +291,9 @@
     try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }
     catch (_) { window.scrollTo(0, 0); }
 
+    // ✅ TAMPILKAN SKELETON CEPAT DULU (Instan)
+    if (view) view.innerHTML = `<div class="card">${UI.skeleton(4)}</div>`;
+
     // ---------- Render view ----------
     try {
       await route.fn();
@@ -314,7 +316,7 @@
   }
 
   /* ============================================================
-   *  9. GLOBAL REFRESH
+   *  8. GLOBAL REFRESH
    * ============================================================ */
   let refreshInFlight = false;
 
@@ -344,7 +346,7 @@
   }
 
   /* ============================================================
-   *  10. INIT
+   *  9. INIT
    * ============================================================ */
   function init() {
     /* ---------- User info sidebar ---------- */
@@ -400,6 +402,11 @@
     startClock();
     window.addEventListener('hashchange', navigate);
 
+    /* ---------- Preload Semua Data (Background) ---------- */
+    if (window.Cache && Cache.preloadAll) {
+      setTimeout(() => { Cache.preloadAll(); }, 1000); 
+    }
+
     /* ---------- Cleanup saat tab close ---------- */
     window.addEventListener('beforeunload', () => {
       cleanup();
@@ -411,7 +418,7 @@
   }
 
   /* ============================================================
-   *  11. BOOT
+   *  10. BOOT
    * ============================================================ */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

@@ -1,7 +1,6 @@
 /* ============================================================
    E-VOTE • views-coklit.js (FULL FIX - FINAL)
-   Role: COKLIT — Pencocokan & Penelitian Data Pemilih.
-   Fitur: Normalisasi RT, filter otomatis, batch validation.
+   Role: COKLIT — Preload Cache, Normalisasi RT, Batch Sync.
    ============================================================ */
 window.ViewsCoklit = (function () {
   'use strict';
@@ -9,20 +8,24 @@ window.ViewsCoklit = (function () {
   /* ---------- Shorthand ---------- */
   const view    = () => document.getElementById('view');
   const esc     = (s) => UI.escapeHtml(s);
-  const isTrue  = (v) => v === true || String(v) === 'TRUE' || String(v) === 'true';
 
   /* ============================================================
-   *  HELPER: NORMALISASI RT (Sangat Penting!)
-   *  Mengubah "3", "3.0", "03" menjadi "03"
-   *  Mencegah error saat Sheets menyimpan angka sebagai 3
+   *  HELPER: NORMALISASI RT
+   *  Mengubah "3", "3.0", " 03 " menjadi "03"
    *  ============================================================ */
   function normalizeRt(rt) {
-    let val = String(rt || '').trim();
+    let val = String(rt || '').replace(/\s+/g, '').trim(); // Buang spasi
     if (!val) return '';
-    // Tangani format desimal dari Google Sheets (misal: "3.0")
-    if (val.endsWith('.0')) val = val.slice(0, -2);
+    
+    // Tangani format desimal dari Sheets (misal: "3.0")
+    if (val.indexOf('.') > -1) {
+      val = val.split('.')[0];
+    }
+    
     // Tambahkan nol di depan jika 1 digit (misal: "3" jadi "03")
-    if (val.length === 1) val = '0' + val;
+    if (val.length === 1) {
+      val = '0' + val;
+    }
     return val;
   }
 
@@ -33,20 +36,20 @@ window.ViewsCoklit = (function () {
     return {};
   }
 
-  /* ---------- Helper: cek apakah user adalah coklit dengan RT ---------- */
+  /* ---------- Helper: RT milik user (jika role coklit) ---------- */
   function myRt() {
     const u = me();
     if (String(u.role || '').toLowerCase() !== 'coklit') return '';
-    return normalizeRt(u.rt); // ✅ Gunakan normalisasi
+    return normalizeRt(u.rt);
   }
 
-  /* ---------- Safe fetch (pakai Cache jika ada) ---------- */
+  /* ---------- Safe fetch (Gunakan Cache untuk Preload) ---------- */
   async function fetchData(action, params, force) {
     if (window.Cache) return Cache.fetchApi(action, params, force);
     return API.post(action, params);
   }
 
-  /* ---------- Polling helper ---------- */
+  /* ---------- Polling helper (Background Sync) ---------- */
   const polls = {};
   function setPoll(id, ms, fn) {
     clearPoll(id);
@@ -69,7 +72,7 @@ window.ViewsCoklit = (function () {
     rtFilter: '',
     coklitFilter: 'all',
     search: '',
-    selected: {},   // {voterId: true} — batch mode
+    selected: {}, // {voterId: true} — batch mode
   };
 
   /* ============================================================
@@ -82,7 +85,7 @@ window.ViewsCoklit = (function () {
     const el = view(); if (!el) return;
     el.innerHTML = `<div id="coklitDash">${UI.skeleton(4)}</div>`;
     await loadDash();
-    setPoll('coklitDash', 8000, loadDash);
+    setPoll('coklitDash', 8000, loadDash); // Realtime 8 detik
   }
 
   async function loadDash() {
@@ -93,7 +96,7 @@ window.ViewsCoklit = (function () {
     catch (_) { return; }
     if (!res || !res.success) return;
 
-    /* ✅ FILTER: coklit hanya lihat RT-nya sendiri (Gunakan normalizeRt) */
+    /* ✅ FILTER: coklit hanya lihat RT-nya sendiri */
     const myRtValue = myRt();
     let voters = res.data || [];
     if (myRtValue) {
