@@ -1,6 +1,6 @@
 /* ============================================================
    E-VOTE • views-admin.js (FULL FIX - FINAL)
-   Role: ADMIN — Kontrol Penuh Sistem, Coklit, & Kunci Bilik.
+   Role: ADMIN — Dashboard, Coklit, Kunci Bilik, Flyer Generator.
    ============================================================ */
 window.ViewsAdmin = (function () {
   'use strict';
@@ -45,7 +45,7 @@ window.ViewsAdmin = (function () {
     try { if (window.QR && QR.stop) QR.stop(); } catch (_) {}
   }
 
-  /* ---------- Persistent state (Filter) ---------- */
+  /* ---------- Persistent state ---------- */
   const state = {
     voterRtFilter: '',
     voterCoklitFilter: '',
@@ -68,9 +68,9 @@ window.ViewsAdmin = (function () {
     let sumRes, votersRes, coklitRes;
     try {
       [sumRes, votersRes, coklitRes] = await Promise.all([
-        fetchData('dash.summary', {}),
+        fetchData('dash.summary', {}, true),
         fetchData('list', { sheet: 'voters' }),
-        fetchData('coklit.report', {}),
+        fetchData('coklit.report', {}, true),
       ]);
     } catch (err) { return; }
 
@@ -247,7 +247,7 @@ window.ViewsAdmin = (function () {
     };
 
     await loadVoters();
-    setPoll('voterList', 15000, () => loadVoters(true)); // Sinkronisasi background
+    setPoll('voterList', 15000, () => loadVoters(true));
   }
 
   async function loadVoters(forceRefresh) {
@@ -468,7 +468,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  3. CANDIDATES
+   *  3. CANDIDATES (dengan Tombol Flyer)
    * ============================================================ */
   async function candidates() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
@@ -489,7 +489,7 @@ window.ViewsAdmin = (function () {
 
   async function loadCandidates() {
     const area = document.getElementById('candList'); if (!area) return;
-    let r = await fetchData('list', { sheet: 'candidates' });
+    let r = await fetchData('list', { sheet: 'candidates' }, true);
     if (!r || !r.success) { area.innerHTML = `<p class="hint">Gagal memuat.</p>`; return; }
 
     const list = r.data || [];
@@ -514,6 +514,8 @@ window.ViewsAdmin = (function () {
                 <td>${isTrue(c.active) ? '<span class="badge ok">Ya</span>' : '<span class="badge">Tidak</span>'}</td>
                 <td>
                   <button class="btn-ghost btn-sm" onclick="ViewsAdmin.editCandidate('${esc(c.id)}')">✏️</button>
+                  <!-- ✅ TOMBOL FLYER BARU -->
+                  <button class="btn-primary btn-sm" onclick="ViewsAdmin.generateFlyer('${esc(c.id)}')" title="Generate Flyer">🖼️ Flyer</button>
                   <button class="btn-danger btn-sm" onclick="ViewsAdmin.deleteCandidate('${esc(c.id)}')">🗑️</button>
                 </td>
               </tr>`).join('')}
@@ -525,7 +527,8 @@ window.ViewsAdmin = (function () {
   async function editCandidate(id) {
     let c = {
       id: '', noUrut: '', name: '', position: 'ketua_rt',
-      photoUrl: '', visi: '', misi: '', active: true
+      photoUrl: '', visi: '', misi: '', active: true,
+      slogan: '', alamat: ''
     };
     if (id) {
       try {
@@ -552,6 +555,17 @@ window.ViewsAdmin = (function () {
       <label class="field"><span>Nama Calon *</span>
         <input class="input" id="cName" value="${esc(c.name || '')}">
       </label>
+      
+      <!-- ✅ TAMBAHAN BARU: Slogan & Alamat -->
+      <div class="grid-2">
+        <label class="field"><span>Slogan / Tagline</span>
+          <input class="input" id="cSlogan" value="${esc(c.slogan || '')}" placeholder="Contoh: Bersama Kita Bisa!">
+        </label>
+        <label class="field"><span>Alamat (RT/RW)</span>
+          <input class="input" id="cAlamat" value="${esc(c.alamat || '')}" placeholder="Contoh: RT 03 / RW 05">
+        </label>
+      </div>
+
       <label class="field">
         <span>Foto Calon</span>
         ${c.photoUrl
@@ -590,6 +604,8 @@ window.ViewsAdmin = (function () {
             misi: wrap.querySelector('#cMisi').value.trim(),
             active: wrap.querySelector('#cActive').checked,
             photoUrl: c.photoUrl || '',
+            slogan: wrap.querySelector('#cSlogan').value.trim(),
+            alamat: wrap.querySelector('#cAlamat').value.trim(),
           };
 
           if (!row.name) { UI.toast('Nama wajib diisi', 'error'); return false; }
@@ -660,6 +676,174 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
+   *  13. GENERATE DIGITAL FLYER (Canvas API)
+   * ============================================================ */
+  async function generateFlyer(id) {
+    let c = null;
+    try {
+      const r = await fetchData('list', { sheet: 'candidates', filter: { id } }, true);
+      if (r.success && r.data && r.data[0]) c = r.data[0];
+    } catch (_) {}
+
+    if (!c) { UI.toast('Data calon tidak ditemukan', 'error'); return; }
+
+    UI.toast('Membuat flyer...', 'info', 1500);
+
+    // Buat Canvas 1080x1350 (Rasio Instagram 4:5)
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const ctx = canvas.getContext('2d');
+
+    // 1. Background Gradient
+    const grad = ctx.createLinearGradient(0, 0, 1080, 1350);
+    grad.addColorStop(0, '#0f172a'); // Dark Blue
+    grad.addColorStop(1, '#1e3a8a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1080, 1350);
+
+    // 2. Ornamen Geometris
+    ctx.fillStyle = 'rgba(37, 99, 235, 0.2)';
+    ctx.beginPath();
+    ctx.moveTo(1080, 0);
+    ctx.lineTo(1080, 600);
+    ctx.lineTo(500, 0);
+    ctx.fill();
+
+    // 3. Header (Logo & Nama Event)
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText('PEMILIHAN KETUA & WAKIL PEMUDA', 80, 100);
+    ctx.font = '18px sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('RUKUN AGAWE SANTOSA (RAS) - NGIJO', 80, 135);
+
+    // 4. Foto Calon (Bulat)
+    if (c.photoUrl) {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = c.photoUrl;
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(540, 450, 220, 0, Math.PI * 2, true);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(img, 320, 230, 440, 440);
+        ctx.restore();
+
+        // Border Foto
+        ctx.beginPath();
+        ctx.arc(540, 450, 220, 0, Math.PI * 2, true);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 12;
+        ctx.stroke();
+      } catch (err) {
+        console.warn('Gagal load foto', err);
+      }
+    }
+
+    // 5. Nomor Urut Badge
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(540, 700, 60, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 48px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(c.noUrut || '-', 540, 720);
+
+    // 6. Nama & Slogan
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 64px sans-serif';
+    ctx.fillText(String(c.name || '').toUpperCase(), 540, 830);
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'italic 32px sans-serif';
+    ctx.fillText(`"${c.slogan || 'Bersama Membangun Desa'}"`, 540, 890);
+
+    // 7. Visi Misi (Kotak Kaca / Glassmorphism)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(80, 950, 920, 280, 20);
+    } else {
+      ctx.rect(80, 950, 920, 280); // Fallback
+    }
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Teks Visi Misi
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText('VISI:', 120, 1000);
+    
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '22px sans-serif';
+    const visiText = c.visi || '-';
+    const visiLines = wrapText(ctx, visiText, 800);
+    visiLines.slice(0, 2).forEach((line, i) => {
+      ctx.fillText(line, 120, 1040 + (i * 30));
+    });
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText('MISI UTAMA:', 120, 1120);
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '22px sans-serif';
+    const misiText = c.misi ? c.misi.split(';')[0] + '...' : '-';
+    const misiLines = wrapText(ctx, misiText, 800);
+    misiLines.slice(0, 2).forEach((line, i) => {
+      ctx.fillText(line, 120, 1160 + (i * 30));
+    });
+
+    // 8. Footer (Alamat & QR Code dummy)
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '20px sans-serif';
+    ctx.fillText(`Alamat: ${c.alamat || 'Sekretariat Panitia'}`, 540, 1280);
+    ctx.fillText('E-VOTE 2026 • Suara Anda Menentukan Masa Depan', 540, 1310);
+
+    // 9. Download Flyer
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `Flyer_${String(c.name || 'Calon').replace(/\s+/g, '_')}.jpg`;
+    a.click();
+    
+    UI.toast('Flyer berhasil diunduh!', 'success');
+  }
+
+  // Helper untuk memotong teks panjang agar rapi di canvas
+  function wrapText(ctx, text, maxWidth) {
+    const words = String(text || '').split(' ');
+    const lines = [];
+    let currentLine = '';
+    for (let i = 0; i < words.length; i++) {
+      const testLine = currentLine + words[i] + ' ';
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && i > 0) {
+        lines.push(currentLine.trim());
+        currentLine = words[i] + ' ';
+      } else {
+        currentLine = testLine;
+      }
+    }
+    lines.push(currentLine.trim());
+    return lines;
+  }
+
+  /* ============================================================
    *  4. BOOTHS — Kontrol Kunci Bilik
    * ============================================================ */
   async function booths() {
@@ -721,7 +905,6 @@ window.ViewsAdmin = (function () {
     }).join('');
   }
 
-  /* ✅ FITUR BARU: Admin Buka/Tutup Bilik */
   async function authorizeBooth(boothId, status) {
     try {
       const r = await API.post('booth.authorize', { boothId, isAuthorized: status });
@@ -789,7 +972,7 @@ window.ViewsAdmin = (function () {
   }
 
   /* ============================================================
-   *  5. USERS
+   *  5. USERS (dengan role COKLIT)
    * ============================================================ */
   async function users() {
     clearAllPolls(); cleanupSignPad(); safeQRStop();
@@ -810,7 +993,7 @@ window.ViewsAdmin = (function () {
 
   async function loadUsers() {
     const area = document.getElementById('userList'); if (!area) return;
-    let r = await fetchData('list', { sheet: 'users' });
+    let r = await fetchData('list', { sheet: 'users' }, true);
     if (!r || !r.success) return;
 
     const list = r.data || [];
@@ -1271,7 +1454,7 @@ window.ViewsAdmin = (function () {
 
   async function loadResults() {
     const area = document.getElementById('resultsArea'); if (!area) return;
-    let r = await fetchData('results', {});
+    let r = await fetchData('results', {}, true);
     if (!r || !r.success) return;
 
     const groups = r.groups || {};
@@ -1868,7 +2051,7 @@ window.ViewsAdmin = (function () {
     dashboard, voters, candidates, booths, users,
     invitations, results, beritaAcara, settings, logs,
     editVoter, deleteVoter, resetVoter,
-    editCandidate, deleteCandidate,
+    editCandidate, deleteCandidate, generateFlyer,
     editBooth, freeBooth, deleteBooth, authorizeBooth,
     editUser, deleteUser,
     prevInvPage, nextInvPage,
