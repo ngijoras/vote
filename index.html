@@ -536,7 +536,7 @@
         <p>Proses pemilihan dilakukan secara transparan dan akuntabel.</p>
       </div>
       <div class="timeline">
-        <div class="tl-item done"><div class="tl-dot"></div><div class="tl-content"><h4>1. Pendaftaran Calon</h4><p>Pendaftaran calon Ketua Pemuda dibuka.</p></div></div>
+        <div class="tl-item done"><div class="tl-dot"></div><div class="tl-content"><h4>1. Pendaftaran Calon</h4><p>Pendaftaran calon Ketua RT &amp; Ketua Pemuda dibuka.</p></div></div>
         <div class="tl-item done"><div class="tl-dot"></div><div class="tl-content"><h4>2. Verifikasi &amp; Penetapan</h4><p>Verifikasi berkas syarat pencalonan dan penetapan nomor urut.</p></div></div>
         <div class="tl-item"><div class="tl-dot"></div><div class="tl-content"><h4>3. Sosialisasi &amp; Kampanye</h4><p>Masa pengenalan visi misi calon kepada warga.</p></div></div>
         <div class="tl-item"><div class="tl-dot"></div><div class="tl-content"><h4>4. Pemungutan Suara</h4><p>Pencoblosan / pemungutan suara serentak di Balai RW.</p></div></div>
@@ -891,6 +891,10 @@
             </div>
             <div class="c-body">
               <h3 class="c-name">${API_escape(c.name)}</h3>
+              
+              <!-- ✅ TAMPILKAN SLOGAN -->
+              ${c.slogan ? `<div style="font-size: 0.95rem; font-style: italic; color: #8b5cf6; margin-bottom: 16px; font-weight: 600;">"${API_escape(c.slogan)}"</div>` : ''}
+
               <div class="c-info-group">
                 <div class="c-info-title">🎯 Visi</div>
                 <div class="c-info-text">${API_escape(c.visi || '-')}</div>
