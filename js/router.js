@@ -1,7 +1,6 @@
 /* ============================================================
    E-VOTE • router.js (FULL FIX - FINAL)
    Hash-based SPA Router + Auth Guard + Role Guard + Cleanup.
-   Fitur: Instant Skeleton, Anti-Looping, Preload Sync.
    ============================================================ */
 (function () {
   'use strict';
@@ -15,7 +14,6 @@
   let u = null;
   try { u = JSON.parse(userRaw); } catch (_) { u = null; }
 
-  // Tendang ke login HANYA jika benar-benar tidak ada token
   if (!token || !u || !u.role) {
     location.replace('login.html');
     return;
@@ -32,7 +30,6 @@
         return;
       }
       
-      // Jika server benar-benar bilang token tidak valid (misal: kadaluarsa 6 jam)
       if (!r || !r.success) {
         console.warn('[router] Token invalid. Logging out...');
         (window.SafeStorage || localStorage).removeItem('evote_token');
@@ -41,7 +38,6 @@
         location.replace('login.html');
       }
     }).catch(() => {
-      // Catch error jaringan → biarkan user tetap di halaman
       console.warn('[router] Verify catch error. Tetap di halaman.');
     });
   })();
@@ -114,7 +110,7 @@
   };
 
   /* ============================================================
-   *  3. CLEANUP (Mencegah Memory Leak)
+   *  3. CLEANUP
    * ============================================================ */
   function cleanup() {
     try { if (window.ViewsAdmin   && ViewsAdmin._clearAllPolls)   ViewsAdmin._clearAllPolls();   } catch (_) {}
@@ -127,7 +123,7 @@
   }
 
   /* ============================================================
-   *  4. SIDEBAR + NAV RENDER
+   *  4. NAV RENDER
    * ============================================================ */
   function renderNav(activePath) {
     const nav = document.getElementById('nav');
@@ -137,9 +133,7 @@
     const list = MENUS[roleKey] || [];
 
     if (!list.length) {
-      nav.innerHTML = `<p class="hint" style="padding:12px;color:var(--err)">
-        Menu tidak tersedia untuk role "${UI.escapeHtml(roleKey)}"
-      </p>`;
+      nav.innerHTML = `<p class="hint" style="padding:12px;color:var(--err)">Menu tidak tersedia untuk role "${UI.escapeHtml(roleKey)}"</p>`;
       return;
     }
 
@@ -169,11 +163,8 @@
     backdrop = document.createElement('div');
     backdrop.className = 'sidebar-backdrop';
     backdrop.style.cssText = [
-      'position:fixed', 'inset:0',
-      'background:rgba(15,23,42,.45)',
-      'z-index:40',
-      'opacity:0', 'pointer-events:none',
-      'transition:opacity .25s ease',
+      'position:fixed', 'inset:0', 'background:rgba(15,23,42,.45)',
+      'z-index:40', 'opacity:0', 'pointer-events:none', 'transition:opacity .25s ease',
     ].join(';');
     backdrop.addEventListener('click', closeSidebar);
     document.body.appendChild(backdrop);
@@ -184,16 +175,14 @@
     const sb = document.querySelector('.sidebar');
     const bd = ensureBackdrop();
     if (sb) sb.classList.add('open');
-    bd.style.opacity = '1';
-    bd.style.pointerEvents = 'auto';
+    bd.style.opacity = '1'; bd.style.pointerEvents = 'auto';
   }
 
   function closeSidebar() {
     const sb = document.querySelector('.sidebar');
     const bd = ensureBackdrop();
     if (sb) sb.classList.remove('open');
-    bd.style.opacity = '0';
-    bd.style.pointerEvents = 'none';
+    bd.style.opacity = '0'; bd.style.pointerEvents = 'none';
   }
 
   function toggleSidebar() {
@@ -211,7 +200,6 @@
     const el = document.getElementById('clock');
     if (!el) return;
     if (clockTimer) clearInterval(clockTimer);
-
     const tick = () => {
       const d = new Date();
       const day  = d.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short' });
@@ -222,16 +210,14 @@
     clockTimer = setInterval(tick, 1000);
   }
 
-  function stopClock() {
-    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
-  }
+  function stopClock() { if (clockTimer) { clearInterval(clockTimer); clockTimer = null; } }
 
   /* ============================================================
-   *  7. NAVIGATE (INSTANT RENDER)
+   *  7. NAVIGATE
    * ============================================================ */
   function parsePath() {
     const raw = (location.hash || '').replace(/^#\/?/, '').trim();
-    return raw.replace(/\/$/, ''); // Strip trailing slash
+    return raw.replace(/\/$/, '');
   }
 
   function defaultPath() {
@@ -244,33 +230,18 @@
     const view  = document.getElementById('view');
     const title = document.getElementById('pageTitle');
 
-    if (!path) {
-      location.replace('#/' + defaultPath());
-      return;
-    }
+    if (!path) { location.replace('#/' + defaultPath()); return; }
 
     const route = ROUTES[path];
 
-    // ---------- 404 ----------
     if (!route) {
       if (title) title.textContent = 'Tidak Ditemukan';
       document.title = 'Tidak Ditemukan • E-Vote';
-      if (view) {
-        view.innerHTML = `
-          <div class="card text-center" style="padding:40px">
-            <h1 style="font-size:3rem;margin:0">404</h1>
-            <h3 style="margin-top:8px">Halaman Tidak Ditemukan</h3>
-            <p class="hint">Route "<code>${UI.escapeHtml(path)}</code>" tidak tersedia.</p>
-            <a href="#/${defaultPath()}" class="btn-primary" style="margin-top:16px">
-              Kembali ke Dashboard
-            </a>
-          </div>`;
-      }
+      if (view) view.innerHTML = `<div class="card text-center" style="padding:40px"><h1 style="font-size:3rem;margin:0">404</h1><h3 style="margin-top:8px">Halaman Tidak Ditemukan</h3><p class="hint">Route "<code>${UI.escapeHtml(path)}</code>" tidak tersedia.</p><a href="#/${defaultPath()}" class="btn-primary" style="margin-top:16px">Kembali ke Dashboard</a></div>`;
       updateActive('');
       return;
     }
 
-    // ---------- Role Guard ----------
     const roleKey = String(u.role).toLowerCase();
     if (route.roles && route.roles.indexOf(roleKey) === -1) {
       UI.toast('Anda tidak memiliki akses ke halaman ini', 'error');
@@ -278,40 +249,22 @@
       return;
     }
 
-    // ---------- Cleanup previous view ----------
     cleanup();
     closeSidebar();
 
-    // ---------- Update UI meta ----------
     if (title) title.textContent = route.title;
     document.title = `${route.title} • E-Vote`;
     updateActive(path);
 
-    // ---------- Scroll to top ----------
     try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }
     catch (_) { window.scrollTo(0, 0); }
 
-    // ✅ TAMPILKAN SKELETON CEPAT DULU (Instan)
     if (view) view.innerHTML = `<div class="card">${UI.skeleton(4)}</div>`;
 
-    // ---------- Render view ----------
-    try {
-      await route.fn();
-    } catch (err) {
+    try { await route.fn(); }
+    catch (err) {
       console.error('[router] view error:', err);
-      if (view) {
-        view.innerHTML = `
-          <div class="card">
-            <h3 style="color:var(--err)">Terjadi Kesalahan</h3>
-            <p class="hint">${UI.escapeHtml(err && err.message ? err.message : String(err))}</p>
-            <div class="row">
-              <button class="btn-primary" type="button" onclick="location.reload()">
-                Muat Ulang Halaman
-              </button>
-              <a href="#/${defaultPath()}" class="btn-ghost">Kembali ke Dashboard</a>
-            </div>
-          </div>`;
-      }
+      if (view) view.innerHTML = `<div class="card"><h3 style="color:var(--err)">Terjadi Kesalahan</h3><p class="hint">${UI.escapeHtml(err && err.message ? err.message : String(err))}</p><div class="row"><button class="btn-primary" type="button" onclick="location.reload()">Muat Ulang Halaman</button><a href="#/${defaultPath()}" class="btn-ghost">Kembali ke Dashboard</a></div></div>`;
     }
   }
 
@@ -323,12 +276,7 @@
   async function globalRefresh(btn) {
     if (refreshInFlight) return;
     refreshInFlight = true;
-
-    if (btn) {
-      btn.classList.add('loading');
-      btn.disabled = true;
-    }
-
+    if (btn) { btn.classList.add('loading'); btn.disabled = true; }
     try {
       if (window.Cache) Cache.clearAll();
       await navigate();
@@ -338,10 +286,7 @@
       if (window.UI) UI.toast('Gagal memperbarui data', 'error');
     } finally {
       refreshInFlight = false;
-      if (btn) {
-        btn.classList.remove('loading');
-        btn.disabled = false;
-      }
+      if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
     }
   }
 
@@ -349,77 +294,72 @@
    *  9. INIT
    * ============================================================ */
   function init() {
-    /* ---------- User info sidebar ---------- */
     const userNameEl = document.getElementById('userName');
     const userRoleEl = document.getElementById('userRole');
     if (userNameEl) userNameEl.textContent = u.name || u.username || '—';
     if (userRoleEl) userRoleEl.textContent = String(u.role).toUpperCase();
 
-    /* ---------- Nav ---------- */
     const currentPath = parsePath() || defaultPath();
     renderNav(currentPath);
 
-    /* ---------- Menu toggle (mobile) ---------- */
     const btnMenu = document.getElementById('btnMenu');
-    if (btnMenu) {
-      btnMenu.addEventListener('click', toggleSidebar);
-    }
+    if (btnMenu) btnMenu.addEventListener('click', toggleSidebar);
 
-    /* ---------- Auto-close sidebar saat klik nav item ---------- */
     const nav = document.getElementById('nav');
-    if (nav) {
-      nav.addEventListener('click', (e) => {
-        if (e.target.closest('.nav-item')) closeSidebar();
-      });
-    }
+    if (nav) nav.addEventListener('click', (e) => { if (e.target.closest('.nav-item')) closeSidebar(); });
 
-    /* ---------- Logout button (fallback) ---------- */
+    /* ---------- ✅ LOGOUT BUTTON FIX (Anti Double Bind) ---------- */
     document.querySelectorAll('[data-logout]').forEach((btn) => {
-      if (btn.dataset.bound === '1') return;
-      btn.dataset.bound = '1';
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
 
-      btn.addEventListener('click', async () => {
+      newBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
         let ok = true;
         if (window.UI && UI.confirm) {
           ok = await UI.confirm('Keluar dari aplikasi?', { okLabel: 'Ya, Keluar' });
         } else {
           ok = window.confirm('Keluar dari aplikasi?');
         }
+
         if (ok) {
-          if (window.Auth && Auth.logout) Auth.logout({ redirect: true });
-          else if (window.API) API.logout();
+          // 1. Proses Logout via Auth (jika ada)
+          if (window.Auth && Auth.logout) {
+            Auth.logout({ redirect: false });
+          } 
+          // 2. Fallback hapus manual
+          else if (window.API) {
+            API.clearSession();
+          }
+
+          // 3. Paksa hapus semua sisa cache
+          try {
+            localStorage.removeItem('evote_token');
+            localStorage.removeItem('evote_user');
+            sessionStorage.clear();
+            if (window.Cache) Cache.clearAll();
+          } catch (_) {}
+
+          // 4. Tendang ke login
+          location.replace('login.html');
         }
       });
     });
 
-    /* ---------- Global refresh button ---------- */
     const btnRefresh = document.getElementById('btnGlobalRefresh');
-    if (btnRefresh) {
-      btnRefresh.addEventListener('click', () => globalRefresh(btnRefresh));
-    }
+    if (btnRefresh) btnRefresh.addEventListener('click', () => globalRefresh(btnRefresh));
 
-    /* ---------- Clock & route listener ---------- */
     startClock();
     window.addEventListener('hashchange', navigate);
 
-    /* ---------- Preload Semua Data (Background) ---------- */
     if (window.Cache && Cache.preloadAll) {
       setTimeout(() => { Cache.preloadAll(); }, 1000); 
     }
 
-    /* ---------- Cleanup saat tab close ---------- */
-    window.addEventListener('beforeunload', () => {
-      cleanup();
-      stopClock();
-    });
-
-    /* ---------- First navigate ---------- */
+    window.addEventListener('beforeunload', () => { cleanup(); stopClock(); });
     navigate();
   }
 
-  /* ============================================================
-   *  10. BOOT
-   * ============================================================ */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

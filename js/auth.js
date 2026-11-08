@@ -1,78 +1,30 @@
 /* ============================================================
-   E-VOTE • auth.js (FULL FIX - FINAL + COKLIT)
+   E-VOTE • auth.js (FULL FIX - FINAL)
    Layer autentikasi di atas js/api.js.
-
-   Fitur:
-   - Session get/set/clear — sinkron dengan SafeStorage
-   - Login/logout wrapper (delegate ke API)
-   - Role helpers: hasRole, isAdmin, isPetugas, isBilik, isCoklit
-   - Page guard: requireLogin, requireRole
-   - Verify async ke server (endpoint 'me')
-   - Heartbeat optional — auto-verify periodik
-   - Event subscription: 'login', 'logout', 'change', 'expired'
-   - Cross-tab sync (via storage event)
-   - Remember username helpers
-   - bindLogoutButtons (opsional)
-
-   ⚠️ WAJIB dimuat SETELAH js/storage.js dan js/api.js,
-   SEBELUM js/router.js.
    ============================================================ */
 window.Auth = (function () {
   'use strict';
 
-  /* ============================================================
-   *  CONSTANTS
-   * ============================================================ */
   const LS_TOKEN    = 'evote_token';
   const LS_USER     = 'evote_user';
   const LS_EXP      = 'evote_exp';
   const LS_REMEMBER = 'evote_remember_username';
 
-  const DEFAULT_LOGIN_PAGE = 'login.html';
-  const DEFAULT_APP_PAGE   = 'app.html';
-
-  /* Route fallback per-role (dipakai requireRole) */
-  const ROLE_HOME = {
-    admin:   '#/admin',
-    petugas: '#/petugas',
-    bilik:   '#/bilik',
-    coklit:  '#/coklit',
-  };
-
-  /* ============================================================
-   *  STORAGE RESOLVER (SafeStorage → localStorage)
-   * ============================================================ */
   const Store = (window.SafeStorage || window.localStorage);
 
-  function lsGet(key) {
-    try { return Store.getItem(key); }
-    catch (_) { return null; }
-  }
-  function lsSet(key, val) {
-    try { Store.setItem(key, String(val)); }
-    catch (_) {}
-  }
-  function lsDel(key) {
-    try { Store.removeItem(key); }
-    catch (_) {}
-  }
+  function lsGet(key) { try { return Store.getItem(key); } catch (_) { return null; } }
+  function lsSet(key, val) { try { Store.setItem(key, String(val)); } catch (_) {} }
+  function lsDel(key) { try { Store.removeItem(key); } catch (_) {} }
 
-  /* ============================================================
-   *  API RESOLVER (lazy — jangan throw saat module load)
-   * ============================================================ */
   function api() {
-    if (!window.API) {
-      throw new Error('js/auth.js memerlukan js/api.js dimuat lebih dulu');
-    }
+    if (!window.API) throw new Error('js/auth.js memerlukan js/api.js dimuat lebih dulu');
     return window.API;
   }
 
   /* ============================================================
    *  SESSION ACCESSORS
    * ============================================================ */
-  function token() {
-    return lsGet(LS_TOKEN) || '';
-  }
+  function token() { return lsGet(LS_TOKEN) || ''; }
 
   function user() {
     try {
@@ -121,22 +73,13 @@ window.Auth = (function () {
     return true;
   }
 
-  /**
-   * Snapshot info session (tanpa efek samping).
-   * Aman dipanggil dari listener event — tidak akan trigger clearSession.
-   */
   function sessionInfo() {
     const t = token();
     const u = user();
     const e = exp();
     if (!t || !u) return null;
     if (e && e <= Date.now()) return null;
-    return {
-      token: t,
-      user: u,
-      exp: e,
-      remainingMs: e ? (e - Date.now()) : 0,
-    };
+    return { token: t, user: u, exp: e, remainingMs: e ? (e - Date.now()) : 0 };
   }
 
   function role() {
@@ -160,46 +103,20 @@ window.Auth = (function () {
   function isCoklit()  { return hasRole('coklit'); }
 
   /* ============================================================
-   *  REDIRECT HELPERS
+   *  REDIRECTS
    * ============================================================ */
   function redirectToLogin(next) {
-    const url = next
-      ? DEFAULT_LOGIN_PAGE + '?next=' + encodeURIComponent(next)
-      : DEFAULT_LOGIN_PAGE;
+    const url = next ? 'login.html?next=' + encodeURIComponent(next) : 'login.html';
     location.replace(url);
-  }
-
-  function redirectToApp() {
-    location.replace(DEFAULT_APP_PAGE);
   }
 
   function homeForRole(r) {
     const key = String(r || role()).toLowerCase();
-    return ROLE_HOME[key] || DEFAULT_APP_PAGE;
+    return ({ admin: '#/admin', petugas: '#/petugas', bilik: '#/bilik', coklit: '#/coklit' }[key]) || 'app.html';
   }
 
   /* ============================================================
-   *  GUARDS
-   * ============================================================ */
-  function requireLogin(opts) {
-    opts = opts || {};
-    if (isLoggedIn()) return true;
-    if (opts.redirect !== false) redirectToLogin(opts.next || '');
-    return false;
-  }
-
-  function requireRole(roles, opts) {
-    opts = opts || {};
-    if (!requireLogin(opts)) return false;
-    if (hasRole(roles)) return true;
-    if (opts.redirect !== false) {
-      location.replace(homeForRole(role()));
-    }
-    return false;
-  }
-
-  /* ============================================================
-   *  LOGIN / LOGOUT / VERIFY
+   *  LOGIN / LOGOUT
    * ============================================================ */
   async function login(username, password, opts) {
     opts = opts || {};
@@ -219,33 +136,38 @@ window.Auth = (function () {
   async function logout(opts) {
     opts = opts || {};
     const A = api();
-    try { await A.logout({ redirect: false }); }
-    catch (_) { clearSession(); }
+    
+    // 1. Coba hapus di server (tidak peduli berhasil/gagal)
+    try { await A.logout({ redirect: false }); } 
+    catch (_) {}
+    
+    // 2. Hapus sesi lokal
+    clearSession();
+    
+    // 3. Emit event
     emit('change', null);
     emit('logout', null);
-    if (opts.redirect !== false) redirectToLogin(opts.redirectTo || '');
+    
+    // 4. Redirect
+    if (opts.redirect !== false) {
+      redirectToLogin(opts.redirectTo || '');
+    }
     return true;
   }
 
-  /**
-   * Verifikasi token ke server. Kalau sukses → refresh user object.
-   * - Network error → jangan clear session (biar user coba lagi).
-   * - Server bilang tidak valid → clearSession + emit expired.
-   */
+  /* ============================================================
+   *  VERIFY
+   * ============================================================ */
   let verifying = false;
   async function verify() {
     if (!isLoggedIn()) return false;
-    if (verifying) return false; // anti concurrent verify
+    if (verifying) return false;
     verifying = true;
 
     const A = api();
     let res;
-    try {
-      res = await A.post('me');
-    } catch (_) {
-      verifying = false;
-      return false; // network error
-    }
+    try { res = await A.post('me'); } 
+    catch (_) { verifying = false; return false; }
     verifying = false;
 
     if (res && res.success && res.user) {
@@ -254,119 +176,39 @@ window.Auth = (function () {
       return true;
     }
 
-    // Server bilang token tidak valid
     clearSession();
     emit('expired', null);
     return false;
   }
 
   /* ============================================================
-   *  HEARTBEAT (optional)
-   * ============================================================ */
-  let heartbeatId = null;
-
-  function startHeartbeat(ms) {
-    stopHeartbeat();
-    const interval = Math.max(60000, Number(ms) || 5 * 60 * 1000);
-    heartbeatId = setInterval(async function () {
-      const ok = await verify();
-      if (!ok) {
-        stopHeartbeat();
-        emit('expired', null);
-      }
-    }, interval);
-    return heartbeatId;
-  }
-
-  function stopHeartbeat() {
-    if (heartbeatId) {
-      clearInterval(heartbeatId);
-      heartbeatId = null;
-    }
-  }
-
-  /* ============================================================
    *  REMEMBER USERNAME
    * ============================================================ */
-  function rememberedUsername() {
-    return lsGet(LS_REMEMBER) || '';
-  }
+  function rememberedUsername() { return lsGet(LS_REMEMBER) || ''; }
   function saveRememberedUsername(u) {
     if (u) lsSet(LS_REMEMBER, u);
     else   lsDel(LS_REMEMBER);
   }
 
   /* ============================================================
-   *  EVENT SYSTEM
+   *  EVENTS
    * ============================================================ */
-  const listeners = {
-    login:   [],
-    logout:  [],
-    change:  [],
-    expired: [],
-  };
+  const listeners = { login: [], logout: [], change: [], expired: [] };
 
   function on(event, cb) {
     if (!listeners[event] || typeof cb !== 'function') return function () {};
     listeners[event].push(cb);
     return function () { off(event, cb); };
   }
-
   function off(event, cb) {
     if (!listeners[event]) return;
     const i = listeners[event].indexOf(cb);
     if (i >= 0) listeners[event].splice(i, 1);
   }
-
   function emit(event, payload) {
     if (!listeners[event]) return;
     listeners[event].slice().forEach(function (cb) {
-      try { cb(payload); }
-      catch (e) { console.warn('[Auth] listener error (' + event + '):', e); }
-    });
-  }
-
-  /* ============================================================
-   *  CROSS-TAB SYNC
-   * ============================================================ */
-  function setupStorageSync() {
-    if (typeof window === 'undefined') return;
-    try {
-      window.addEventListener('storage', function (e) {
-        if (!e || !e.key) return;
-        if (e.key !== LS_TOKEN && e.key !== LS_USER && e.key !== LS_EXP) return;
-
-        if (isLoggedIn()) {
-          emit('change', sessionInfo());
-          emit('login', user());
-        } else {
-          emit('change', null);
-          emit('logout', null);
-        }
-      });
-    } catch (_) {}
-  }
-  setupStorageSync();
-
-  /* ============================================================
-   *  LOGOUT BUTTONS (opsional — router sudah handle)
-   * ============================================================ */
-  function bindLogoutButtons(root) {
-    const scope = root || document;
-    const btns = scope.querySelectorAll('[data-logout]');
-    btns.forEach(function (btn) {
-      if (btn.dataset.authBound === '1') return;
-      btn.dataset.authBound = '1';
-      btn.addEventListener('click', async function (e) {
-        e.preventDefault();
-        let ok = true;
-        if (window.UI && typeof UI.confirm === 'function') {
-          ok = await UI.confirm('Keluar dari aplikasi?', { okLabel: 'Ya, Keluar' });
-        } else {
-          ok = window.confirm('Keluar dari aplikasi?');
-        }
-        if (ok) logout({ redirect: true });
-      });
+      try { cb(payload); } catch (e) { console.warn('[Auth] listener error:', e); }
     });
   }
 
@@ -374,58 +216,13 @@ window.Auth = (function () {
    *  EXPORT
    * ============================================================ */
   return {
-    /* Session */
-    token: token,
-    user: user,
-    role: role,
-    exp: exp,
-    sessionInfo: sessionInfo,
-    setSession: setSession,
-    clearSession: clearSession,
-    isLoggedIn: isLoggedIn,
-
-    /* Roles */
-    hasRole: hasRole,
-    isAdmin: isAdmin,
-    isPetugas: isPetugas,
-    isBilik: isBilik,
-    isCoklit: isCoklit,
-
-    /* Guards */
-    requireLogin: requireLogin,
-    requireRole: requireRole,
-
-    /* Redirects */
-    redirectToLogin: redirectToLogin,
-    redirectToApp: redirectToApp,
-    homeForRole: homeForRole,
-
-    /* Auth */
-    login: login,
-    logout: logout,
-    verify: verify,
-
-    /* Heartbeat */
-    startHeartbeat: startHeartbeat,
-    stopHeartbeat: stopHeartbeat,
-
-    /* Remember */
-    rememberedUsername: rememberedUsername,
-    saveRememberedUsername: saveRememberedUsername,
-
-    /* Events */
-    on: on,
-    off: off,
-
-    /* DOM */
-    bindLogoutButtons: bindLogoutButtons,
-
-    /* Meta */
-    keys: {
-      TOKEN: LS_TOKEN,
-      USER: LS_USER,
-      EXP: LS_EXP,
-      REMEMBER: LS_REMEMBER,
-    },
+    token, user, role, exp, sessionInfo,
+    setSession, clearSession, isLoggedIn,
+    hasRole, isAdmin, isPetugas, isBilik, isCoklit,
+    redirectToLogin, homeForRole,
+    login, logout, verify,
+    rememberedUsername, saveRememberedUsername,
+    on, off,
+    keys: { TOKEN: LS_TOKEN, USER: LS_USER, EXP: LS_EXP, REMEMBER: LS_REMEMBER },
   };
 })();
