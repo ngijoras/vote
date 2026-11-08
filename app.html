@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#2563eb" />
   <meta name="description" content="E-Vote Dashboard Pemilihan Ketua RT / Ketua & Wakil Pemuda" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
   <title>E-Vote • Dashboard</title>
 
@@ -15,83 +12,28 @@
   <link rel="stylesheet" href="css/style.css" />
 
   <style>
-    /* ============================================================
-       TOPBAR & REFRESH BUTTON
-       ============================================================ */
-    .topbar-actions {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-    #btnGlobalRefresh {
-      padding: 8px 12px;
-      font-size: 0.9rem;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s ease;
-    }
-    #btnGlobalRefresh svg {
-      width: 16px;
-      height: 16px;
-      transition: transform 0.5s ease;
-    }
-    #btnGlobalRefresh.loading svg {
-      animation: spin 1s linear infinite;
-    }
-    #btnGlobalRefresh:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-    @keyframes spin {
-      100% { transform: rotate(360deg); }
-    }
+    .topbar-actions { display: flex; gap: 10px; align-items: center; }
+    #btnGlobalRefresh { padding: 8px 12px; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; }
+    #btnGlobalRefresh svg { width: 16px; height: 16px; transition: transform 0.5s ease; }
+    #btnGlobalRefresh.loading svg { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
 
     @media (max-width: 600px) {
       .mobile-hide { display: none !important; }
       #btnGlobalRefresh { padding: 8px; border-radius: 50%; }
     }
 
-    /* ============================================================
-       OFFLINE BANNER
-       ============================================================ */
     #offlineBanner {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: #b45309;
-      color: #fff;
-      text-align: center;
-      padding: 8px 16px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      z-index: 9999;
-      transform: translateY(-100%);
-      transition: transform 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+      position: fixed; top: 0; left: 0; right: 0; background: #b45309; color: #fff;
+      text-align: center; padding: 8px 16px; font-size: 0.85rem; font-weight: 600;
+      z-index: 9999; transform: translateY(-100%); transition: transform 0.3s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
     }
-    #offlineBanner.show {
-      transform: translateY(0);
-    }
+    #offlineBanner.show { transform: translateY(0); }
 
-    /* ============================================================
-       ANTI-FLASH (fade-in saat app ready)
-       ============================================================ */
-    #app {
-      opacity: 0;
-      transition: opacity 0.2s ease;
-    }
-    #app.ready {
-      opacity: 1;
-    }
+    #app { opacity: 0; transition: opacity 0.2s ease; }
+    #app.ready { opacity: 1; }
 
-    /* ============================================================
-       PRINT SETTING
-       ============================================================ */
     @media print {
       @page { size: A4 portrait; margin: 0; }
       .sidebar, .topbar, .no-print, #offlineBanner { display: none !important; }
@@ -103,72 +45,40 @@
 <body>
   <noscript>
     <div style="padding:24px;background:#fee2e2;color:#991b1b;font-family:sans-serif;text-align:center">
-      <strong>JavaScript dinonaktifkan.</strong>
-      Aktifkan JavaScript di browser untuk menggunakan aplikasi E-Vote.
+      <strong>JavaScript dinonaktifkan.</strong> Aktifkan JavaScript di browser untuk menggunakan aplikasi E-Vote.
     </div>
   </noscript>
 
-  <!-- ============================================================
-       OFFLINE BANNER
-       ============================================================ -->
   <div id="offlineBanner" role="alert">
-    <span>⚠️</span>
-    <span>Anda sedang offline. Data mungkin tidak ter-update.</span>
+    <span>⚠️</span><span>Anda sedang offline. Data mungkin tidak ter-update.</span>
   </div>
 
   <div id="app">
-    <!-- ============================================================
-         SIDEBAR
-         ============================================================ -->
     <aside class="sidebar" id="sidebar">
       <a href="index.html" class="brand-mini" title="Kembali ke Beranda">
-        <span class="dot" aria-hidden="true"></span>
-        <span>E-Vote</span>
+        <span class="dot" aria-hidden="true"></span><span>E-Vote</span>
       </a>
-
       <nav id="nav" aria-label="Navigasi utama"></nav>
-
       <div class="userbox">
         <div id="userName">—</div>
         <small id="userRole">—</small>
-        <button class="btn-ghost btn-block" type="button" data-logout>
-          Keluar
-        </button>
+        <!-- Tombol Logout dengan atribut data-logout -->
+        <button class="btn-ghost btn-block" type="button" data-logout>Keluar</button>
       </div>
     </aside>
 
-    <!-- ============================================================
-         MAIN CONTENT
-         ============================================================ -->
     <main class="main">
       <header class="topbar">
-        <button
-          id="btnMenu"
-          class="btn-ghost mobile-only"
-          type="button"
-          aria-label="Buka menu"
-        >
-          ☰
-        </button>
-
+        <button id="btnMenu" class="btn-ghost mobile-only" type="button" aria-label="Buka menu">☰</button>
         <h2 id="pageTitle">Dashboard</h2>
-
         <div class="topbar-actions">
-          <button
-            id="btnGlobalRefresh"
-            class="btn-ghost"
-            type="button"
-            title="Paksa ambil data terbaru dari server"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="23 4 23 10 17 10"></polyline>
-              <polyline points="1 20 1 14 7 14"></polyline>
+          <button id="btnGlobalRefresh" class="btn-ghost" type="button" title="Paksa ambil data terbaru dari server">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline>
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
             </svg>
             <span class="mobile-hide">Refresh</span>
           </button>
-
           <div id="clock" class="clock" aria-live="off">—</div>
         </div>
       </header>
@@ -182,15 +92,11 @@
     </main>
   </div>
 
-  <!-- ============================================================
-       EXTERNAL LIBRARIES
-       ============================================================ -->
+  <!-- LIBRARIES -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-  <!-- ============================================================
-       APP SCRIPTS — URUTAN WAJIB JANGAN DIACAK!
-       ============================================================ -->
+  <!-- APP SCRIPTS (URUTAN WAJIB) -->
   <script src="js/storage.js"></script>
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
@@ -206,143 +112,50 @@
   <script src="js/views-bilik.js"></script>
   <script src="js/views-coklit.js"></script>
 
-  <!-- Router (WAJIB PALING BAWAH) -->
+  <!-- Router -->
   <script src="js/router.js"></script>
 
-  <!-- ============================================================
-       BOOTSTRAP: offline detection, session guard, anti-flash
-       ============================================================ -->
+  <!-- BOOTSTRAP -->
   <script>
   (function () {
     'use strict';
 
-    const app           = document.getElementById('app');
+    const app = document.getElementById('app');
     const offlineBanner = document.getElementById('offlineBanner');
 
-    /* ------------------------------------------------------------
-       1. ONLINE / OFFLINE DETECTION
-       ------------------------------------------------------------ */
     function updateOnlineStatus() {
       if (!offlineBanner) return;
-      if (navigator.onLine) {
-        offlineBanner.classList.remove('show');
-      } else {
-        offlineBanner.classList.add('show');
-      }
+      if (navigator.onLine) offlineBanner.classList.remove('show');
+      else offlineBanner.classList.add('show');
     }
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
     updateOnlineStatus();
 
-    /* ------------------------------------------------------------
-       2. SESSION GUARD (sebelum router.load)
-       ------------------------------------------------------------ */
-    function checkSession() {
-      let token = null;
-      let user  = null;
-      try {
-        const Store = (window.SafeStorage || window.localStorage);
-        token = Store.getItem('evote_token');
-        const raw = Store.getItem('evote_user');
-        user = raw ? JSON.parse(raw) : null;
-      } catch (_) {}
-
-      if (!token || !user || !user.role) {
-        location.replace('login.html');
-        return false;
-      }
-      return true;
-    }
-
-    if (!checkSession()) return;
-
-    /* ------------------------------------------------------------
-       3. DEFAULT HASH PER ROLE (cegah flash "Memuat…")
-       ------------------------------------------------------------ */
-    (function ensureHash() {
-      const hash = (location.hash || '').replace(/^#\/?/, '').trim();
-      if (hash) return; // sudah ada hash, biarkan router handle
-
-      let role = '';
-      try {
-        const Store = (window.SafeStorage || window.localStorage);
-        const raw = Store.getItem('evote_user');
-        const u = raw ? JSON.parse(raw) : null;
-        role = u && u.role ? String(u.role).toLowerCase() : '';
-      } catch (_) {}
-
-      const DEFAULT_ROUTE = {
-        admin:   'admin',
-        petugas: 'petugas',
-        bilik:   'bilik',
-        coklit:  'coklit',
-      };
-      const target = DEFAULT_ROUTE[role] || 'admin';
-      location.replace('#/' + target);
-    })();
-
-    /* ------------------------------------------------------------
-       4. ANTI-FLASH: Fade-in #app
-       ------------------------------------------------------------ */
-    function revealApp() {
-      if (app) app.classList.add('ready');
-    }
+    function revealApp() { if (app) app.classList.add('ready'); }
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function () {
-        requestAnimationFrame(revealApp);
-      });
+      document.addEventListener('DOMContentLoaded', () => requestAnimationFrame(revealApp));
     } else {
       requestAnimationFrame(revealApp);
     }
 
-    /* ------------------------------------------------------------
-       5. SESSION EXPIRED + LOGOUT LISTENER (via Auth)
-       ------------------------------------------------------------ */
-    if (window.Auth && Auth.on) {
-      Auth.on('expired', function () {
+    /* ✅ EMERGENCY LOGOUT (Jaga-jaga jika router gagal) */
+    document.addEventListener('click', function(e) {
+      const btn = e.target.closest('[data-logout]');
+      if (!btn) return;
+      
+      // Jika setelah 1 detik halaman belum pindah, paksa hapus cache manual
+      setTimeout(() => {
         try {
-          if (window.UI && UI.toast) {
-            UI.toast('Sesi berakhir. Silakan login ulang.', 'warn', 4000);
-          }
-        } catch (_) {}
-        setTimeout(function () {
-          location.replace('login.html?expired=1');
-        }, 800);
-      });
-
-      Auth.on('logout', function () {
-        location.replace('login.html');
-      });
-    }
-
-    /* ------------------------------------------------------------
-       6. CACHE PRELOAD (background, delay 1.5s agar UI settle)
-       ------------------------------------------------------------ */
-    if (window.Cache && Cache.preloadAll) {
-      setTimeout(function () {
-        try { Cache.preloadAll(); } catch (_) {}
-      }, 1500);
-    }
-
-    /* ------------------------------------------------------------
-       7. FORCE LOGOUT saat token tidak valid (fallback)
-       ------------------------------------------------------------ */
-    if (window.API && typeof API.post === 'function') {
-      // Verifikasi awal (silent — tidak block UI)
-      setTimeout(function () {
-        API.post('me').then(function (r) {
-          if (!r || !r.success) {
-            try { if (window.Cache) Cache.clearAll(); } catch (_) {}
-            try { if (window.Auth) Auth.clearSession(); } catch (_) {}
-            location.replace('login.html?expired=1');
-          }
-        }).catch(function () {
-          // Network error → jangan logout, biarkan user tetap
-          console.warn('[boot] verify network error — offline mode');
-        });
-      }, 500);
-    }
-
+          localStorage.clear();
+          sessionStorage.clear();
+          location.replace('login.html');
+        } catch (err) {
+          console.error('[Emergency Logout]', err);
+          location.href = 'login.html';
+        }
+      }, 1000);
+    });
   })();
   </script>
 </body>
