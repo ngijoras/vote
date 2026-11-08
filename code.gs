@@ -1,7 +1,7 @@
 /** ============================================================
- *  E-VOTE — Apps Script Backend (FINAL + FLYER + KUNCI BILIK)
- *  Fitur: Auth, CRUD, Voting, Coklit RT, Flyer Data,
- *         Kunci Bilik (Gatekeeper), Upload Drive, Backup.
+ *  E-VOTE — Apps Script Backend (FINAL + JADWAL DINAMIS)
+ *  Fitur: Auth, CRUD, Voting, Coklit, Shuffle, Kunci Bilik,
+ *         Jadwal Dinamis, Upload Drive, Audit Log, Backup.
  *  ============================================================ */
 const SS = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -30,7 +30,12 @@ const HEADERS = {
 
 const PUBLIC_SETTINGS = [
   'event_name', 'event_location', 'election_date',
-  'invitation_signer', 'invitation_signature', 'voter_positions', 'voting_mode'
+  'invitation_signer', 'invitation_signature', 'voter_positions', 'voting_mode',
+  // ✅ TAMBAHAN JADWAL DINAMIS
+  'jadwal_daftar_mulai', 'jadwal_daftar_selesai',
+  'jadwal_verifikasi_mulai', 'jadwal_verifikasi_selesai',
+  'jadwal_kampanye_mulai', 'jadwal_kampanye_selesai',
+  'jadwal_pungut_mulai', 'jadwal_pungut_selesai'
 ];
 
 /* ============================================================
@@ -113,6 +118,9 @@ function route_(e) {
 
       /* ---------- COKLIT REPORT ---------- */
       case 'coklit.report':  out = withAuth_(token, ['admin', 'petugas'], () => coklitReport_()); break;
+
+      /* ---------- CANDIDATES (SHUFFLE) ---------- */
+      case 'candidates.shuffle': out = withAuth_(token, ['admin'], () => shuffleCandidates_()); break;
 
       /* ---------- ATTENDANCE ---------- */
       case 'attendance.checkin': out = withAuth_(token, ['petugas', 'admin'], (u) => checkin_(u, body)); break;
@@ -721,6 +729,55 @@ function coklitReport_() {
 }
 
 /* ============================================================
+ *  SHUFFLE CANDIDATES (Acak Nomor Urut)
+ *  ============================================================ */
+function shuffleCandidates_() {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); } catch (_) { return { success: false, message: 'Server sibuk' }; }
+
+  try {
+    const candidates = getRows_('candidates');
+    if (!candidates.length) return { success: false, message: 'Belum ada calon untuk diacak' };
+
+    // Kelompokkan berdasarkan posisi
+    const grouped = {};
+    candidates.forEach(c => {
+      const pos = String(c.position || 'lainnya');
+      grouped[pos] = grouped[pos] || [];
+      grouped[pos].push(c);
+    });
+
+    let updatedCount = 0;
+
+    // Acak setiap grup
+    for (const pos in grouped) {
+      const list = grouped[pos];
+      
+      // Fisher-Yates Shuffle Algorithm
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+
+      // Simpan nomor urut baru
+      for (let i = 0; i < list.length; i++) {
+        const c = list[i];
+        const newNo = i + 1;
+        if (String(c.noUrut) !== String(newNo)) {
+          saveRow_('candidates', Object.assign({}, c, { noUrut: newNo }));
+          updatedCount++;
+        }
+      }
+    }
+
+    log_('-', 'shuffle', 'Nomor urut calon diacak (' + updatedCount + ' baris diupdate)');
+    return { success: true, message: 'Nomor urut berhasil diacak (' + updatedCount + ' calon diperbarui)' };
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+/* ============================================================
  *  ATTENDANCE
  * ============================================================ */
 function checkin_(u, body) {
@@ -836,7 +893,7 @@ function setBoothCurrent_(body) {
     name: overrideName || booth.name,
     status: voterId ? 'occupied' : 'ready',
     currentVoterId: voterId,
-    isAuthorized: voterId ? true : false,
+    isAuthorized: voterId ? true : false, // Kunci otomatis jika kosong
     updatedAt: now,
   }));
   return { success: true, boothId, voterId, voterName };
@@ -1141,6 +1198,11 @@ function seedDatabase() {
     election_date: new Date(Date.now() + 7 * 86400000).toISOString(),
     invitation_signer: 'Ketua Panitia',
     voting_mode: 'single',
+    // ✅ Default jadwal dinamis
+    jadwal_daftar_mulai: '', jadwal_daftar_selesai: '',
+    jadwal_verifikasi_mulai: '', jadwal_verifikasi_selesai: '',
+    jadwal_kampanye_mulai: '', jadwal_kampanye_selesai: '',
+    jadwal_pungut_mulai: '', jadwal_pungut_selesai: ''
   };
   Object.keys(sDef).forEach(k => {
     if (!settings.find(s => String(s.key) === k)) {

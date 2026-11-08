@@ -20,7 +20,6 @@
     :root { --nav-height: 72px; }
     html { scroll-behavior: smooth; scroll-padding-top: var(--nav-height); }
     
-    /* ✅ Background lebih gelap agar kartu putih menonjol */
     body {
       background: #f1f5f9 !important;
       overflow-x: hidden;
@@ -63,7 +62,6 @@
     }
     .nav-links a:hover::after, .nav-links a.active::after { width: 100%; }
 
-    /* ✅ PERBAIKAN: Tombol Login Putih Solid & Tegas */
     .login-btn-top {
       background: #2563eb !important; 
       color: #ffffff !important;      
@@ -322,6 +320,16 @@
       background: #fff; border: 4px solid #2563eb; z-index: 1;
     }
     .tl-item.done .tl-dot { background: #2563eb; }
+    .tl-item.active .tl-dot { 
+      background: #f59e0b; border-color: #fef3c7; 
+      box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
+      animation: pulse-active 1.5s infinite;
+    }
+    @keyframes pulse-active {
+      0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
     .tl-content { background: #fff; padding: 20px; border-radius: 14px; border: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .tl-content h4 { font-size: 1.1rem; margin-bottom: 4px; color: #0f172a; }
     .tl-content p { font-size: 0.9rem; color: #475569; margin: 0; }
@@ -467,7 +475,7 @@
   <header class="hero-section" id="hero">
     <span class="hero-badge">PILIHAN RAKYAT 2026</span>
     <h1>Kenali Calon <span>Pemimpin Anda</span></h1>
-    <p>Mari sukseskan pemilihan Ketua/Wakil Pemuda. Kenali visi, misi, dan profil para calon sebelum memberikan hak suara Anda.</p>
+    <p>Mari sukseskan pemilihan Ketua RT &amp; Ketua/Wakil Pemuda. Kenali visi, misi, dan profil para calon sebelum memberikan hak suara Anda.</p>
   </header>
 
   <!-- =========================================================
@@ -516,7 +524,7 @@
     <!-- Candidates area -->
     <div id="candidatesArea" style="display: none;">
       <section id="section-rt" style="display:none; margin-bottom: 48px;">
-        <h3 style="font-size: 1.3rem; margin-bottom: 24px; border-left: 4px solid #2563eb; padding-left: 12px; color: #0f172a;"></h3>
+        <h3 style="font-size: 1.3rem; margin-bottom: 24px; border-left: 4px solid #2563eb; padding-left: 12px; color: #0f172a;">Calon Ketua RT</h3>
         <div class="candidate-grid" id="grid-rt"></div>
       </section>
       <section id="section-pemuda" style="display:none;">
@@ -535,11 +543,10 @@
         <h2>Jadwal &amp; Tahapan Pemilihan</h2>
         <p>Proses pemilihan dilakukan secara transparan dan akuntabel.</p>
       </div>
-      <div class="timeline">
-        <div class="tl-item done"><div class="tl-dot"></div><div class="tl-content"><h4>1. Pendaftaran Calon</h4><p>Pendaftaran calon Ketua Pemuda dibuka.</p></div></div>
-        <div class="tl-item done"><div class="tl-dot"></div><div class="tl-content"><h4>2. Verifikasi &amp; Penetapan</h4><p>Verifikasi berkas syarat pencalonan dan penetapan nomor urut.</p></div></div>
-        <div class="tl-item"><div class="tl-dot"></div><div class="tl-content"><h4>3. Sosialisasi &amp; Kampanye</h4><p>Masa pengenalan visi misi calon kepada warga.</p></div></div>
-        <div class="tl-item"><div class="tl-dot"></div><div class="tl-content"><h4>4. Pemungutan Suara</h4><p>Pencoblosan / pemungutan suara serentak di Balai RW.</p></div></div>
+      
+      <!-- ✅ TIMELINE DINAMIS -->
+      <div class="timeline" id="timelineArea">
+        <div style="text-align:center; padding:20px;">Memuat jadwal...</div>
       </div>
     </div>
   </section>
@@ -827,6 +834,124 @@
         }
       });
     });
+
+    /* =========================================
+       RENDER TIMELINE DINAMIS
+       ========================================= */
+    function formatDateIndo(dateStr) {
+      if (!dateStr) return '-';
+      const d = new Date(dateStr);
+      if (isNaN(d)) return '-';
+      return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function checkTimelineStatus(startStr, endStr) {
+      const now = new Date();
+      now.setHours(0,0,0,0); // Reset jam agar perbandingan akurat
+
+      const start = startStr ? new Date(startStr) : null;
+      const end = endStr ? new Date(endStr) : null;
+
+      if (!start && !end) return { status: 'pending', label: 'Belum diatur' };
+      
+      if (start && now < start) {
+        return { status: 'pending', label: 'Belum Dimulai' };
+      }
+      
+      if (end && now > end) {
+        return { status: 'done', label: 'Selesai' };
+      }
+
+      if (start && end && now >= start && now <= end) {
+        return { status: 'active', label: 'Sedang Berlangsung' };
+      }
+
+      return { status: 'pending', label: 'Menunggu' };
+    }
+
+    async function loadTimeline() {
+      const area = document.getElementById('timelineArea');
+      if (!area) return;
+
+      let res;
+      try {
+        res = await API.getPublicSettings();
+      } catch (_) { return; }
+      
+      if (!res || !res.success) return;
+      const s = res.data || {};
+
+      const steps = [
+        {
+          title: '1. Pendaftaran Calon',
+          desc: 'Pendaftaran calon Ketua RT & Ketua Pemuda dibuka.',
+          start: s.jadwal_daftar_mulai,
+          end: s.jadwal_daftar_selesai
+        },
+        {
+          title: '2. Verifikasi & Penetapan',
+          desc: 'Verifikasi berkas syarat pencalonan dan penetapan nomor urut.',
+          start: s.jadwal_verifikasi_mulai,
+          end: s.jadwal_verifikasi_selesai
+        },
+        {
+          title: '3. Sosialisasi & Kampanye',
+          desc: 'Masa pengenalan visi misi calon kepada warga.',
+          start: s.jadwal_kampanye_mulai,
+          end: s.jadwal_kampanye_selesai
+        },
+        {
+          title: '4. Pemungutan Suara',
+          desc: 'Pencoblosan / pemungutan suara serentak di Balai RW.',
+          start: s.jadwal_pungut_mulai,
+          end: s.jadwal_pungut_selesai
+        }
+      ];
+
+      let html = '';
+      steps.forEach(step => {
+        const stat = checkTimelineStatus(step.start, step.end);
+        
+        let dotClass = '';
+        let badge = '';
+
+        if (stat.status === 'done') {
+          dotClass = 'done';
+          badge = `<span class="badge ok" style="margin-left:8px;">Selesai</span>`;
+        } else if (stat.status === 'active') {
+          dotClass = 'active'; // Kita akan buat CSS khusus untuk ini
+          badge = `<span class="badge warn" style="margin-left:8px;">Sedang Berlangsung</span>`;
+        } else {
+          badge = `<span class="badge" style="margin-left:8px;">Belum Dimulai</span>`;
+        }
+
+        let dateRange = '';
+        if (step.start || step.end) {
+          dateRange = `<div style="font-size:0.85rem; color:var(--primary); font-weight:600; margin-top:6px;">
+            📅 ${formatDateIndo(step.start)} s/d ${formatDateIndo(step.end)}
+          </div>`;
+        }
+
+        html += `
+          <div class="tl-item ${dotClass}">
+            <div class="tl-dot"></div>
+            <div class="tl-content" style="${stat.status === 'active' ? 'border-color:var(--primary); box-shadow:0 4px 12px rgba(37,99,235,0.15);' : ''}">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+                <h4 style="margin:0;">${step.title}</h4>
+                ${badge}
+              </div>
+              <p style="margin-top:6px;">${step.desc}</p>
+              ${dateRange}
+            </div>
+          </div>
+        `;
+      });
+
+      area.innerHTML = html;
+    }
+
+    // Panggil fungsi loadTimeline saat halaman dimuat
+    loadTimeline();
 
     /* =========================================
        LOAD CANDIDATES
