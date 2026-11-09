@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#2563eb" />
-  <meta name="description" content="E-Vote — Pemilihan Ketua & Wakil Pemuda. Kenali visi misi calon sebelum memilih." />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="description" content="E-Vote — Pemilihan Ketua RT / Ketua & Wakil Pemuda." />
 
   <title>E-Vote • Pemilihan Ketua Pemuda</title>
 
@@ -410,9 +408,7 @@
 </head>
 <body>
 
-  <!-- =========================================================
-       NAVBAR
-       ========================================================= -->
+  <!-- NAVBAR -->
   <nav class="navbar" id="navbar">
     <a href="#hero" class="nav-brand"><span class="dot"></span> E-Vote</a>
 
@@ -423,10 +419,8 @@
       <a href="#panduan">Panduan</a>
       <a href="#kritik-saran">Kritik &amp; Saran</a>
 
-      <!-- BELUM LOGIN -->
       <a href="login.html" class="login-btn-top" id="navLoginBtn">Masuk / Login</a>
 
-      <!-- SUDAH LOGIN -->
       <div class="nav-user-dropdown" id="navUserDropdown" style="display: none;">
         <button class="nav-user-btn" id="navUserBtn" type="button">
           <span id="navUserName">User</span>
@@ -469,18 +463,14 @@
     </div>
   </div>
 
-  <!-- =========================================================
-       HERO
-       ========================================================= -->
+  <!-- HERO -->
   <header class="hero-section" id="hero">
     <span class="hero-badge">PILIHAN RAKYAT 2026</span>
     <h1>Kenali Calon <span>Pemimpin Anda</span></h1>
-    <p>Mari sukseskan pemilihan Ketua/Wakil Pemuda. Kenali visi, misi, dan profil para calon sebelum memberikan hak suara Anda.</p>
+    <p>Mari sukseskan pemilihan Ketua RT &amp; Ketua/Wakil Pemuda. Kenali visi, misi, dan profil para calon sebelum memberikan hak suara Anda.</p>
   </header>
 
-  <!-- =========================================================
-       COUNTDOWN TIMER
-       ========================================================= -->
+  <!-- COUNTDOWN TIMER -->
   <div class="countdown-wrapper">
     <div class="countdown-box">
       <div class="countdown-title" id="timerTitle">Menuju Hari Pemungutan Suara</div>
@@ -496,23 +486,19 @@
     </div>
   </div>
 
-  <!-- =========================================================
-       KANDIDAT
-       ========================================================= -->
+  <!-- KANDIDAT -->
   <main class="container" id="kandidat">
     <div class="section-header">
       <h2>Profil Kandidat</h2>
       <p>Berikut adalah daftar calon pemimpin yang siap mengabdi untuk lingkungan kita.</p>
     </div>
 
-    <!-- Skeleton loading -->
     <div id="loadingState" class="candidate-grid">
       <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
       <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
       <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
     </div>
 
-    <!-- Error state -->
     <div id="errorState" style="display: none;">
       <div class="error-state">
         <h3>Gagal Memuat Data</h3>
@@ -521,10 +507,9 @@
       </div>
     </div>
 
-    <!-- Candidates area -->
     <div id="candidatesArea" style="display: none;">
       <section id="section-rt" style="display:none; margin-bottom: 48px;">
-        <h3 style="font-size: 1.3rem; margin-bottom: 24px; border-left: 4px solid #2563eb; padding-left: 12px; color: #0f172a;"> </h3>
+        <h3 style="font-size: 1.3rem; margin-bottom: 24px; border-left: 4px solid #2563eb; padding-left: 12px; color: #0f172a;">Calon Ketua RT</h3>
         <div class="candidate-grid" id="grid-rt"></div>
       </section>
       <section id="section-pemuda" style="display:none;">
@@ -534,26 +519,20 @@
     </div>
   </main>
 
-  <!-- =========================================================
-       JADWAL
-       ========================================================= -->
+  <!-- JADWAL -->
   <section style="background: #fff; padding: 80px 24px; border-top: 1px solid #cbd5e1;" id="jadwal">
     <div class="container">
       <div class="section-header">
         <h2>Jadwal &amp; Tahapan Pemilihan</h2>
         <p>Proses pemilihan dilakukan secara transparan dan akuntabel.</p>
       </div>
-      
-      <!-- ✅ TIMELINE DINAMIS -->
       <div class="timeline" id="timelineArea">
         <div style="text-align:center; padding:20px;">Memuat jadwal...</div>
       </div>
     </div>
   </section>
 
-  <!-- =========================================================
-       PANDUAN
-       ========================================================= -->
+  <!-- PANDUAN -->
   <section class="container" id="panduan">
     <div class="section-header">
       <h2>Panduan Memilih</h2>
@@ -566,9 +545,7 @@
     </div>
   </section>
 
-  <!-- =========================================================
-       FEEDBACK
-       ========================================================= -->
+  <!-- FEEDBACK -->
   <section class="feedback-section" id="kritik-saran">
     <div class="feedback-box">
       <h2>Kritik &amp; Saran</h2>
@@ -596,16 +573,10 @@
     </div>
   </section>
 
-  <!-- =========================================================
-       FOOTER
-       ========================================================= -->
   <footer class="footer">
     <p>© <span id="year"></span> Panitia Pemilihan • Sistem E-Vote</p>
   </footer>
 
-  <!-- =========================================================
-       SCRIPTS
-       ========================================================= -->
   <script src="js/storage.js"></script>
   <script src="js/api.js"></script>
   <script>
@@ -615,6 +586,32 @@
     const Store = (window.SafeStorage || window.localStorage);
     const yearEl = document.getElementById('year');
     if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+    /* =========================================
+       CACHE HELPERS (KUNCI INSTAN LOAD)
+       ========================================= */
+    const CACHE_KEY_CAND = 'landing_cache_candidates';
+    const CACHE_KEY_SET  = 'landing_cache_settings';
+    const CACHE_TTL      = 5 * 60 * 1000; // 5 menit
+
+    function saveCache(key, data) {
+      try {
+        localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: data }));
+      } catch (_) {}
+    }
+
+    function getCache(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (Date.now() - parsed.ts > CACHE_TTL) {
+          localStorage.removeItem(key);
+          return null;
+        }
+        return parsed.data;
+      } catch (_) { return null; }
+    }
 
     /* =========================================
        ROLE → DASHBOARD PATH
@@ -647,7 +644,6 @@
         const userRole = (user.role || '').toUpperCase();
         const dashPath = roleToDashPath(user.role);
 
-        /* Desktop */
         const loginBtn = document.getElementById('navLoginBtn');
         const userDropdown = document.getElementById('navUserDropdown');
         if (loginBtn) loginBtn.style.display = 'none';
@@ -663,7 +659,6 @@
           if (dash) dash.href = dashPath;
         }
 
-        /* Mobile */
         const mobLoginBtn = document.getElementById('mobLoginBtn');
         const mobUserMenu = document.getElementById('mobUserMenu');
         if (mobLoginBtn) mobLoginBtn.style.display = 'none';
@@ -677,28 +672,13 @@
           if (mobDash) mobDash.href = dashPath;
         }
 
-        /* Logout handler */
         const logoutHandler = function (e) {
           e.preventDefault();
-          const doLogout = function () {
-            try {
-              if (window.Auth && Auth.logout) {
-                Auth.logout({ redirect: false });
-              } else if (window.API) {
-                API.logout({ redirect: false });
-              }
-              setTimeout(() => location.reload(), 200);
-            } catch (_) {
-              location.reload();
-            }
-          };
-
-          if (window.UI && UI.confirm) {
-            UI.confirm('Keluar dari aplikasi?', { okLabel: 'Ya, Keluar' })
-              .then(function (ok) { if (ok) doLogout(); });
-          } else {
-            if (window.confirm('Keluar dari aplikasi?')) doLogout();
-          }
+          try {
+            if (window.Auth && Auth.logout) Auth.logout({ redirect: false });
+            else if (window.API) API.logout({ redirect: false });
+            setTimeout(() => location.reload(), 200);
+          } catch (_) { location.reload(); }
         };
 
         const desktopLogout = document.getElementById('navLogoutBtn');
@@ -738,53 +718,66 @@
     }
 
     /* =========================================
-       COUNTDOWN TIMER
+       COUNTDOWN TIMER (DENGAN CACHE)
        ========================================= */
     let timerInterval = null;
 
-    async function loadTimer() {
+    function startTimer(electionDateStr) {
+      if (!electionDateStr) return;
+      const targetDate = new Date(electionDateStr).getTime();
+      if (isNaN(targetDate)) return;
+
+      const timerDisplay = document.getElementById('timerDisplay');
+      const timerTitle = document.getElementById('timerTitle');
+      if (!timerDisplay) return;
+
+      if (timerInterval) clearInterval(timerInterval);
+
+      function updateTimer() {
+        const distance = targetDate - Date.now();
+        if (distance < 0) {
+          if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+          if (timerTitle) timerTitle.textContent = 'Status Pemilihan';
+          timerDisplay.innerHTML = `<div class="countdown-done">PEMUNGUTAN SUARA SEDANG / TELAH BERLANGSUNG</div>`;
+          return;
+        }
+        const d = Math.floor(distance / 86400000);
+        const h = Math.floor((distance % 86400000) / 3600000);
+        const m = Math.floor((distance % 3600000) / 60000);
+        const s = Math.floor((distance % 60000) / 1000);
+        const p = function (n) { return String(n).padStart(2, '0'); };
+        timerDisplay.innerHTML = `
+          <div class="cd-item"><div class="cd-num">${p(d)}</div><div class="cd-label">Hari</div></div>
+          <div class="cd-sep">:</div>
+          <div class="cd-item"><div class="cd-num">${p(h)}</div><div class="cd-label">Jam</div></div>
+          <div class="cd-sep">:</div>
+          <div class="cd-item"><div class="cd-num">${p(m)}</div><div class="cd-label">Menit</div></div>
+          <div class="cd-sep">:</div>
+          <div class="cd-item"><div class="cd-num">${p(s)}</div><div class="cd-label">Detik</div></div>
+        `;
+      }
+      updateTimer();
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    async function loadSettings() {
+      // ✅ INSTAN: Coba tampilkan dari cache dulu
+      const cached = getCache(CACHE_KEY_SET);
+      if (cached && cached.election_date) {
+        startTimer(cached.election_date);
+      }
+
+      // ✅ AMBIL DATA BARU: Timpa tampilan setelah API merespons
       try {
         if (!window.API || !API.getPublicSettings) return;
         const res = await API.getPublicSettings();
-        if (!res || !res.success || !res.data || !res.data.election_date) return;
-
-        const targetDate = new Date(res.data.election_date).getTime();
-        if (isNaN(targetDate)) return;
-
-        if (timerInterval) clearInterval(timerInterval);
-
-        function updateTimer() {
-          const distance = targetDate - Date.now();
-          const timerDisplay = document.getElementById('timerDisplay');
-          const timerTitle = document.getElementById('timerTitle');
-          if (!timerDisplay) return;
-
-          if (distance < 0) {
-            if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-            if (timerTitle) timerTitle.textContent = 'Status Pemilihan';
-            timerDisplay.innerHTML = `<div class="countdown-done">PEMUNGUTAN SUARA SEDANG / TELAH BERLANGSUNG</div>`;
-            return;
-          }
-          const d = Math.floor(distance / 86400000);
-          const h = Math.floor((distance % 86400000) / 3600000);
-          const m = Math.floor((distance % 3600000) / 60000);
-          const s = Math.floor((distance % 60000) / 1000);
-          const p = function (n) { return String(n).padStart(2, '0'); };
-          timerDisplay.innerHTML = `
-            <div class="cd-item"><div class="cd-num">${p(d)}</div><div class="cd-label">Hari</div></div>
-            <div class="cd-sep">:</div>
-            <div class="cd-item"><div class="cd-num">${p(h)}</div><div class="cd-label">Jam</div></div>
-            <div class="cd-sep">:</div>
-            <div class="cd-item"><div class="cd-num">${p(m)}</div><div class="cd-label">Menit</div></div>
-            <div class="cd-sep">:</div>
-            <div class="cd-item"><div class="cd-num">${p(s)}</div><div class="cd-label">Detik</div></div>
-          `;
+        if (res && res.success && res.data) {
+          saveCache(CACHE_KEY_SET, res.data);
+          if (res.data.election_date) startTimer(res.data.election_date);
         }
-        updateTimer();
-        timerInterval = setInterval(updateTimer, 1000);
       } catch (_) {}
     }
-    loadTimer();
+    loadSettings();
 
     /* =========================================
        MOBILE MENU & SCROLL SPY
@@ -806,7 +799,6 @@
       });
     }
 
-    /* Scroll spy */
     const sections = document.querySelectorAll('section[id], header[id]');
     const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
     const navbar = document.getElementById('navbar');
@@ -828,177 +820,27 @@
           if (link.getAttribute('href') === '#' + current) link.classList.add('active');
         });
         if (navbar) {
-          navbar.style.boxShadow = window.scrollY > 10
-            ? '0 4px 20px rgba(0,0,0,0.08)'
-            : 'none';
+          navbar.style.boxShadow = window.scrollY > 10 ? '0 4px 20px rgba(0,0,0,0.08)' : 'none';
         }
       });
     });
 
     /* =========================================
-       RENDER TIMELINE DINAMIS
-       ========================================= */
-    function formatDateIndo(dateStr) {
-      if (!dateStr) return '-';
-      const d = new Date(dateStr);
-      if (isNaN(d)) return '-';
-      return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-    }
-
-    function checkTimelineStatus(startStr, endStr) {
-      const now = new Date();
-      now.setHours(0,0,0,0); // Reset jam agar perbandingan akurat
-
-      const start = startStr ? new Date(startStr) : null;
-      const end = endStr ? new Date(endStr) : null;
-
-      if (!start && !end) return { status: 'pending', label: 'Belum diatur' };
-      
-      if (start && now < start) {
-        return { status: 'pending', label: 'Belum Dimulai' };
-      }
-      
-      if (end && now > end) {
-        return { status: 'done', label: 'Selesai' };
-      }
-
-      if (start && end && now >= start && now <= end) {
-        return { status: 'active', label: 'Sedang Berlangsung' };
-      }
-
-      return { status: 'pending', label: 'Menunggu' };
-    }
-
-    async function loadTimeline() {
-      const area = document.getElementById('timelineArea');
-      if (!area) return;
-
-      let res;
-      try {
-        res = await API.getPublicSettings();
-      } catch (_) { return; }
-      
-      if (!res || !res.success) return;
-      const s = res.data || {};
-
-      const steps = [
-        {
-          title: '1. Pendaftaran Calon',
-          desc: 'Pendaftaran calon Ketua Pemuda dibuka.',
-          start: s.jadwal_daftar_mulai,
-          end: s.jadwal_daftar_selesai
-        },
-        {
-          title: '2. Verifikasi & Penetapan',
-          desc: 'Verifikasi berkas syarat pencalonan dan penetapan nomor urut.',
-          start: s.jadwal_verifikasi_mulai,
-          end: s.jadwal_verifikasi_selesai
-        },
-        {
-          title: '3. Sosialisasi & Kampanye',
-          desc: 'Masa pengenalan visi misi calon kepada warga.',
-          start: s.jadwal_kampanye_mulai,
-          end: s.jadwal_kampanye_selesai
-        },
-        {
-          title: '4. Pemungutan Suara',
-          desc: 'Pencoblosan / pemungutan suara serentak di Balai RW.',
-          start: s.jadwal_pungut_mulai,
-          end: s.jadwal_pungut_selesai
-        }
-      ];
-
-      let html = '';
-      steps.forEach(step => {
-        const stat = checkTimelineStatus(step.start, step.end);
-        
-        let dotClass = '';
-        let badge = '';
-
-        if (stat.status === 'done') {
-          dotClass = 'done';
-          badge = `<span class="badge ok" style="margin-left:8px;">Selesai</span>`;
-        } else if (stat.status === 'active') {
-          dotClass = 'active'; // Kita akan buat CSS khusus untuk ini
-          badge = `<span class="badge warn" style="margin-left:8px;">Sedang Berlangsung</span>`;
-        } else {
-          badge = `<span class="badge" style="margin-left:8px;">Belum Dimulai</span>`;
-        }
-
-        let dateRange = '';
-        if (step.start || step.end) {
-          dateRange = `<div style="font-size:0.85rem; color:var(--primary); font-weight:600; margin-top:6px;">
-            📅 ${formatDateIndo(step.start)} s/d ${formatDateIndo(step.end)}
-          </div>`;
-        }
-
-        html += `
-          <div class="tl-item ${dotClass}">
-            <div class="tl-dot"></div>
-            <div class="tl-content" style="${stat.status === 'active' ? 'border-color:var(--primary); box-shadow:0 4px 12px rgba(37,99,235,0.15);' : ''}">
-              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
-                <h4 style="margin:0;">${step.title}</h4>
-                ${badge}
-              </div>
-              <p style="margin-top:6px;">${step.desc}</p>
-              ${dateRange}
-            </div>
-          </div>
-        `;
-      });
-
-      area.innerHTML = html;
-    }
-
-    // Panggil fungsi loadTimeline saat halaman dimuat
-    loadTimeline();
-
-    /* =========================================
-       LOAD CANDIDATES
+       LOAD CANDIDATES (DENGAN CACHE)
        ========================================= */
     function API_escape(s) {
       return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    async function loadCandidates() {
+    function renderCandidates(groups) {
       const loader = document.getElementById('loadingState');
-      const errorBox = document.getElementById('errorState');
       const area = document.getElementById('candidatesArea');
-      if (!loader || !errorBox || !area) return;
-
-      loader.style.display = 'grid';
-      errorBox.style.display = 'none';
-      area.style.display = 'none';
-
-      let res;
-      try {
-        if (!window.API || !API.getPublicCandidates) {
-          throw new Error('API belum siap');
-        }
-        res = await API.getPublicCandidates();
-      } catch (err) {
-        loader.style.display = 'none';
-        errorBox.style.display = 'block';
-        return;
-      }
-
-      if (!res || !res.success || !res.groups) {
-        loader.style.display = 'none';
-        errorBox.style.display = 'block';
-        return;
-      }
-
-      // Skeleton minimal 400ms agar tidak "flash"
-      await new Promise(function (r) { setTimeout(r, 400); });
+      if (!loader || !area) return;
 
       loader.style.display = 'none';
       area.style.display = 'block';
-      const groups = res.groups;
 
       const renderCard = function (c) {
         const imgHtml = c.photoUrl
@@ -1016,10 +858,7 @@
             </div>
             <div class="c-body">
               <h3 class="c-name">${API_escape(c.name)}</h3>
-              
-              <!-- ✅ TAMPILKAN SLOGAN -->
               ${c.slogan ? `<div style="font-size: 0.95rem; font-style: italic; color: #8b5cf6; margin-bottom: 16px; font-weight: 600;">"${API_escape(c.slogan)}"</div>` : ''}
-
               <div class="c-info-group">
                 <div class="c-info-title">🎯 Visi</div>
                 <div class="c-info-text">${API_escape(c.visi || '-')}</div>
@@ -1049,13 +888,8 @@
         sectionRT.style.display = 'none';
       }
 
-      const pemudaCandidates = [].concat(
-        groups['ketua_pemuda'] || [],
-        groups['wakil_pemuda'] || []
-      );
-      pemudaCandidates.sort(function (a, b) {
-        return (Number(a.noUrut) || 0) - (Number(b.noUrut) || 0);
-      });
+      const pemudaCandidates = [].concat(groups['ketua_pemuda'] || [], groups['wakil_pemuda'] || []);
+      pemudaCandidates.sort(function (a, b) { return (Number(a.noUrut) || 0) - (Number(b.noUrut) || 0); });
 
       if (pemudaCandidates.length > 0) {
         if (sectionPemuda) sectionPemuda.style.display = 'block';
@@ -1066,13 +900,115 @@
       }
 
       if (htmlRT === '' && htmlPemuda === '') {
-        area.innerHTML = `<div class="empty-state"><h3>Belum ada data calon</h3><p>Panitia belum memasukkan data calon ke dalam sistem.</p></div>`;
+        area.innerHTML = `<div class="empty-state"><h3>Belum ada data calon</h3><p>Panitia belum memasukkan data calon.</p></div>`;
       }
     }
 
-    /* Expose untuk tombol "Coba Lagi" */
+    async function loadCandidates() {
+      // ✅ INSTAN: Tampilkan cache dulu (jika ada)
+      const cached = getCache(CACHE_KEY_CAND);
+      if (cached && cached.groups) {
+        renderCandidates(cached.groups);
+      }
+
+      // ✅ AMBIL DATA BARU: Timpa tampilan setelah API merespons
+      try {
+        if (!window.API || !API.getPublicCandidates) throw new Error('API belum siap');
+        const res = await API.getPublicCandidates();
+
+        if (res && res.success && res.groups) {
+          saveCache(CACHE_KEY_CAND, res);
+          renderCandidates(res.groups);
+        } else if (!cached) {
+          throw new Error('Data tidak valid');
+        }
+      } catch (err) {
+        // ✅ Jika ada cache, abaikan error. Jika tidak ada cache, tampilkan error
+        if (!cached) {
+          document.getElementById('loadingState').style.display = 'none';
+          document.getElementById('errorState').style.display = 'block';
+        }
+      }
+    }
+
     window.__evoteReloadCandidates = loadCandidates;
     loadCandidates();
+
+    /* =========================================
+       RENDER TIMELINE DINAMIS
+       ========================================= */
+    function formatDateIndo(dateStr) {
+      if (!dateStr) return '-';
+      const d = new Date(dateStr);
+      if (isNaN(d)) return '-';
+      return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function checkTimelineStatus(startStr, endStr) {
+      const now = new Date(); now.setHours(0,0,0,0);
+      const start = startStr ? new Date(startStr) : null;
+      const end = endStr ? new Date(endStr) : null;
+      if (!start && !end) return { status: 'pending', label: 'Belum diatur' };
+      if (start && now < start) return { status: 'pending', label: 'Belum Dimulai' };
+      if (end && now > end) return { status: 'done', label: 'Selesai' };
+      if (start && end && now >= start && now <= end) return { status: 'active', label: 'Sedang Berlangsung' };
+      return { status: 'pending', label: 'Menunggu' };
+    }
+
+    function renderTimeline(settings) {
+      const area = document.getElementById('timelineArea');
+      if (!area || !settings) return;
+
+      const steps = [
+        { title: '1. Pendaftaran Calon', desc: 'Pendaftaran calon Ketua RT & Ketua Pemuda dibuka.', start: settings.jadwal_daftar_mulai, end: settings.jadwal_daftar_selesai },
+        { title: '2. Verifikasi & Penetapan', desc: 'Verifikasi berkas syarat pencalonan dan penetapan nomor urut.', start: settings.jadwal_verifikasi_mulai, end: settings.jadwal_verifikasi_selesai },
+        { title: '3. Sosialisasi & Kampanye', desc: 'Masa pengenalan visi misi calon kepada warga.', start: settings.jadwal_kampanye_mulai, end: settings.jadwal_kampanye_selesai },
+        { title: '4. Pemungutan Suara', desc: 'Pencoblosan / pemungutan suara serentak di Balai RW.', start: settings.jadwal_pungut_mulai, end: settings.jadwal_pungut_selesai }
+      ];
+
+      let html = '';
+      steps.forEach(step => {
+        const stat = checkTimelineStatus(step.start, step.end);
+        let dotClass = '', badge = '';
+        if (stat.status === 'done') { dotClass = 'done'; badge = `<span class="badge ok" style="margin-left:8px;">Selesai</span>`; }
+        else if (stat.status === 'active') { dotClass = 'active'; badge = `<span class="badge warn" style="margin-left:8px;">Sedang Berlangsung</span>`; }
+        else { badge = `<span class="badge" style="margin-left:8px;">Belum Dimulai</span>`; }
+
+        let dateRange = '';
+        if (step.start || step.end) {
+          dateRange = `<div style="font-size:0.85rem; color:var(--primary); font-weight:600; margin-top:6px;">📅 ${formatDateIndo(step.start)} s/d ${formatDateIndo(step.end)}</div>`;
+        }
+
+        html += `
+          <div class="tl-item ${dotClass}">
+            <div class="tl-dot"></div>
+            <div class="tl-content" style="${stat.status === 'active' ? 'border-color:var(--primary); box-shadow:0 4px 12px rgba(37,99,235,0.15);' : ''}">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+                <h4 style="margin:0;">${step.title}</h4>${badge}
+              </div>
+              <p style="margin-top:6px;">${step.desc}</p>${dateRange}
+            </div>
+          </div>`;
+      });
+      area.innerHTML = html;
+    }
+
+    async function loadTimeline() {
+      // ✅ INSTAN: Cache
+      const cached = getCache(CACHE_KEY_SET);
+      if (cached) renderTimeline(cached);
+
+      // ✅ Update
+      try {
+        if (!window.API || !API.getPublicSettings) return;
+        const res = await API.getPublicSettings();
+        if (res && res.success && res.data) {
+          saveCache(CACHE_KEY_SET, res.data);
+          renderTimeline(res.data);
+        }
+      } catch (_) {}
+    }
+    loadTimeline();
 
     /* =========================================
        SUBMIT FEEDBACK
@@ -1121,9 +1057,6 @@
       });
     }
 
-    /* =========================================
-       CLEANUP
-       ========================================= */
     window.addEventListener('beforeunload', function () {
       if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     });

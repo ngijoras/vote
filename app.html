@@ -13,26 +13,29 @@
 
   <style>
     .topbar-actions { display: flex; gap: 10px; align-items: center; }
-    #btnGlobalRefresh { padding: 8px 12px; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; }
+    #btnGlobalRefresh {
+      padding: 8px 12px; font-size: 0.9rem;
+      display: flex; align-items: center; gap: 6px; transition: all 0.2s ease;
+    }
     #btnGlobalRefresh svg { width: 16px; height: 16px; transition: transform 0.5s ease; }
     #btnGlobalRefresh.loading svg { animation: spin 1s linear infinite; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
 
-    @media (max-width: 600px) {
-      .mobile-hide { display: none !important; }
-      #btnGlobalRefresh { padding: 8px; border-radius: 50%; }
-    }
-
     #offlineBanner {
-      position: fixed; top: 0; left: 0; right: 0; background: #b45309; color: #fff;
-      text-align: center; padding: 8px 16px; font-size: 0.85rem; font-weight: 600;
+      position: fixed; top: 0; left: 0; right: 0;
+      background: #b45309; color: #fff; text-align: center;
+      padding: 8px 16px; font-size: 0.85rem; font-weight: 600;
       z-index: 9999; transform: translateY(-100%); transition: transform 0.3s ease;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
     }
     #offlineBanner.show { transform: translateY(0); }
 
     #app { opacity: 0; transition: opacity 0.2s ease; }
     #app.ready { opacity: 1; }
+
+    @media (max-width: 600px) {
+      .mobile-hide { display: none !important; }
+      #btnGlobalRefresh { padding: 8px; border-radius: 50%; }
+    }
 
     @media print {
       @page { size: A4 portrait; margin: 0; }
@@ -44,46 +47,51 @@
 
 <body>
   <noscript>
-    <div style="padding:24px;background:#fee2e2;color:#991b1b;font-family:sans-serif;text-align:center">
-      <strong>JavaScript dinonaktifkan.</strong> Aktifkan JavaScript di browser untuk menggunakan aplikasi E-Vote.
+    <div style="padding:24px;background:#fee2e2;color:#991b1b;text-align:center;font-family:sans-serif">
+      <strong>JavaScript dinonaktifkan.</strong> Aktifkan JavaScript untuk menggunakan aplikasi ini.
     </div>
   </noscript>
 
+  <!-- Offline Banner -->
   <div id="offlineBanner" role="alert">
     <span>⚠️</span><span>Anda sedang offline. Data mungkin tidak ter-update.</span>
   </div>
 
   <div id="app">
+    <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <a href="index.html" class="brand-mini" title="Kembali ke Beranda">
-        <span class="dot" aria-hidden="true"></span><span>E-Vote</span>
+        <span class="dot"></span><span>E-Vote</span>
       </a>
       <nav id="nav" aria-label="Navigasi utama"></nav>
       <div class="userbox">
         <div id="userName">—</div>
         <small id="userRole">—</small>
-        <!-- Tombol Logout dengan atribut data-logout -->
-        <button class="btn-ghost btn-block" type="button" data-logout>Keluar</button>
+        <button class="btn-ghost btn-block" type="button" data-logout>
+          Keluar
+        </button>
       </div>
     </aside>
 
+    <!-- MAIN -->
     <main class="main">
       <header class="topbar">
         <button id="btnMenu" class="btn-ghost mobile-only" type="button" aria-label="Buka menu">☰</button>
         <h2 id="pageTitle">Dashboard</h2>
         <div class="topbar-actions">
-          <button id="btnGlobalRefresh" class="btn-ghost" type="button" title="Paksa ambil data terbaru dari server">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline>
+          <button id="btnGlobalRefresh" class="btn-ghost" type="button" title="Refresh Data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
             </svg>
             <span class="mobile-hide">Refresh</span>
           </button>
-          <div id="clock" class="clock" aria-live="off">—</div>
+          <div id="clock" class="clock">—</div>
         </div>
       </header>
-
-      <section id="view" class="view" role="main" aria-live="polite">
+      <section id="view" class="view" role="main">
         <div class="card text-center" style="padding:40px">
           <div class="ui-spinner" style="margin:0 auto 16px"></div>
           <p class="hint">Memuat aplikasi…</p>
@@ -92,11 +100,42 @@
     </main>
   </div>
 
-  <!-- LIBRARIES -->
+  <!-- EXTERNAL LIBRARIES -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-  <!-- APP SCRIPTS (URUTAN WAJIB) -->
+  <!-- ============================================================
+       ✅ FAIL-SAFE LOGOUT (CAPTURE PHASE)
+       Diletakkan PALING ATAS sebelum script lain.
+       Menangkap SEMUA klik pada tombol [data-logout] dengan
+       prioritas tertinggi (Capture Phase = true).
+       ============================================================ -->
+  <script>
+  (function () {
+    'use strict';
+
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-logout]');
+      if (!btn) return;
+
+      // Prevent default & stop propagation
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      e.stopPropagation();
+
+      // Bersihkan semua data
+      try { localStorage.clear(); } catch (_) {}
+      try { sessionStorage.clear(); } catch (_) {}
+
+      // Redirect ke login
+      window.location.replace('login.html');
+    }, true); // ✅ TRUE = Capture Phase (Menang sebelum handler lain)
+  })();
+  </script>
+
+  <!-- ============================================================
+       APP SCRIPTS (URUTAN WAJIB)
+       ============================================================ -->
   <script src="js/storage.js"></script>
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
@@ -112,17 +151,20 @@
   <script src="js/views-bilik.js"></script>
   <script src="js/views-coklit.js"></script>
 
-  <!-- Router -->
+  <!-- Router (WAJIB PALING BAWAH) -->
   <script src="js/router.js"></script>
 
-  <!-- BOOTSTRAP -->
+  <!-- ============================================================
+       BOOTSTRAP: OFFLINE, SESSION GUARD, ANTI-FLASH
+       ============================================================ -->
   <script>
   (function () {
     'use strict';
 
-    const app = document.getElementById('app');
-    const offlineBanner = document.getElementById('offlineBanner');
+    var app = document.getElementById('app');
+    var offlineBanner = document.getElementById('offlineBanner');
 
+    /* 1. ONLINE / OFFLINE DETECTION */
     function updateOnlineStatus() {
       if (!offlineBanner) return;
       if (navigator.onLine) offlineBanner.classList.remove('show');
@@ -132,30 +174,61 @@
     window.addEventListener('offline', updateOnlineStatus);
     updateOnlineStatus();
 
+    /* 2. SESSION GUARD */
+    function checkSession() {
+      var token = null, user = null;
+      try {
+        var Store = (window.SafeStorage || window.localStorage);
+        token = Store.getItem('evote_token');
+        var raw = Store.getItem('evote_user');
+        user = raw ? JSON.parse(raw) : null;
+      } catch (_) {}
+
+      if (!token || !user || !user.role) {
+        location.replace('login.html');
+        return false;
+      }
+      return true;
+    }
+    if (!checkSession()) return;
+
+    /* 3. DEFAULT HASH */
+    (function ensureHash() {
+      var hash = (location.hash || '').replace(/^#\/?/, '').trim();
+      if (hash) return;
+      var role = '';
+      try {
+        var Store = (window.SafeStorage || window.localStorage);
+        var raw = Store.getItem('evote_user');
+        var u = raw ? JSON.parse(raw) : null;
+        role = u && u.role ? String(u.role).toLowerCase() : '';
+      } catch (_) {}
+      var DEFAULT_ROUTE = { admin: 'admin', petugas: 'petugas', bilik: 'bilik', coklit: 'coklit' };
+      location.replace('#/' + (DEFAULT_ROUTE[role] || 'admin'));
+    })();
+
+    /* 4. ANTI-FLASH */
     function revealApp() { if (app) app.classList.add('ready'); }
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => requestAnimationFrame(revealApp));
+      document.addEventListener('DOMContentLoaded', function () {
+        requestAnimationFrame(revealApp);
+      });
     } else {
       requestAnimationFrame(revealApp);
     }
 
-    /* ✅ EMERGENCY LOGOUT (Jaga-jaga jika router gagal) */
-    document.addEventListener('click', function(e) {
-      const btn = e.target.closest('[data-logout]');
-      if (!btn) return;
-      
-      // Jika setelah 1 detik halaman belum pindah, paksa hapus cache manual
-      setTimeout(() => {
-        try {
-          localStorage.clear();
-          sessionStorage.clear();
-          location.replace('login.html');
-        } catch (err) {
-          console.error('[Emergency Logout]', err);
-          location.href = 'login.html';
-        }
-      }, 1000);
-    });
+    /* 5. AUTH EXPIRED LISTENER */
+    if (window.Auth && Auth.on) {
+      Auth.on('expired', function () {
+        try { if (window.UI && UI.toast) UI.toast('Sesi berakhir. Login ulang.', 'warn', 4000); } catch (_) {}
+        setTimeout(function () { location.replace('login.html?expired=1'); }, 800);
+      });
+    }
+
+    /* 6. PRELOAD CACHE */
+    if (window.Cache && Cache.preloadAll) {
+      setTimeout(function () { try { Cache.preloadAll(); } catch (_) {} }, 1500);
+    }
   })();
   </script>
 </body>
