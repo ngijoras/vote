@@ -1,12 +1,12 @@
 /* ============================================================
-   E-VOTE • router.js (FULL FIX - FINAL)
+   E-VOTE • router.js (FULL FIX - INSTANT RENDER)
    Hash-based SPA Router + Auth Guard + Role Guard + Cleanup.
    ============================================================ */
 (function () {
   'use strict';
 
   /* ============================================================
-   *  1. AUTH GUARD & ANTI-LOOPING
+   *  1. AUTH GUARD (Anti-Looping)
    * ============================================================ */
   const token   = (window.SafeStorage || localStorage).getItem('evote_token');
   const userRaw = (window.SafeStorage || localStorage).getItem('evote_user');
@@ -19,17 +19,18 @@
     return;
   }
 
-  /* ---------- Verify token server-side (Anti-Looping) ---------- */
+  /* ---------- Verify Token (Anti-Looping) ---------- */
   (function verifyToken() {
     if (!window.API || typeof API.post !== 'function') return;
-    
+
     API.post('me').then((r) => {
-      // ✅ JIKA JARINGAN ERROR / OFFLINE, JANGAN LOGOUT!
+      // ✅ JARINGAN ERROR / OFFLINE: JANGAN LOGOUT
       if (r && r.networkError) {
-        console.warn('[router] Offline / Network Error. Skip verify.');
+        console.warn('[router] Offline mode, skip verify');
         return;
       }
-      
+
+      // Token benar-benar invalid dari server
       if (!r || !r.success) {
         console.warn('[router] Token invalid. Logging out...');
         (window.SafeStorage || localStorage).removeItem('evote_token');
@@ -38,7 +39,8 @@
         location.replace('login.html');
       }
     }).catch(() => {
-      console.warn('[router] Verify catch error. Tetap di halaman.');
+      // Catch error jaringan → biarkan user tetap di halaman
+      console.warn('[router] Verify catch error');
     });
   })();
 
@@ -59,11 +61,11 @@
       { path: 'admin/settings',     label: 'Pengaturan',    icon: '⚙️' },
     ],
     petugas: [
-      { path: 'petugas',              label: 'Dashboard',     icon: '📊' },
-      { path: 'petugas/attendance',   label: 'Absensi',       icon: '📷' },
+      { path: 'petugas',              label: 'Dashboard',       icon: '📊' },
+      { path: 'petugas/attendance',   label: 'Absensi',         icon: '📷' },
       { path: 'petugas/queue',        label: 'Antrian & Bilik', icon: '🚪' },
-      { path: 'petugas/results',      label: 'Hasil',         icon: '📈' },
-      { path: 'petugas/berita-acara', label: 'Berita Acara',  icon: '📜' },
+      { path: 'petugas/results',      label: 'Hasil',           icon: '📈' },
+      { path: 'petugas/berita-acara', label: 'Berita Acara',    icon: '📜' },
     ],
     bilik: [
       { path: 'bilik', label: 'Bilik Voting', icon: '🗳️' },
@@ -95,11 +97,11 @@
     'petugas/berita-acara': { title: 'Berita Acara',      roles: ['petugas', 'admin'], fn: () => ViewsAdmin.beritaAcara() },
 
     /* BILIK */
-    'bilik':               { title: 'Bilik Voting',     roles: ['bilik'],            fn: () => ViewsBilik.dashboard() },
+    'bilik':                { title: 'Bilik Voting',     roles: ['bilik'],            fn: () => ViewsBilik.dashboard() },
 
     /* COKLIT */
-    'coklit':              { title: 'Dashboard Coklit', roles: ['coklit'],           fn: () => ViewsCoklit.dashboard() },
-    'coklit/voters':       { title: 'Coklit Pemilih',   roles: ['coklit'],           fn: () => ViewsCoklit.voters() },
+    'coklit':               { title: 'Dashboard Coklit', roles: ['coklit'],           fn: () => ViewsCoklit.dashboard() },
+    'coklit/voters':        { title: 'Coklit Pemilih',   roles: ['coklit'],           fn: () => ViewsCoklit.voters() },
   };
 
   const DEFAULT_ROUTE = {
@@ -128,22 +130,12 @@
   function renderNav(activePath) {
     const nav = document.getElementById('nav');
     if (!nav) return;
-    
     const roleKey = String(u.role).toLowerCase();
     const list = MENUS[roleKey] || [];
-
-    if (!list.length) {
-      nav.innerHTML = `<p class="hint" style="padding:12px;color:var(--err)">Menu tidak tersedia untuk role "${UI.escapeHtml(roleKey)}"</p>`;
-      return;
-    }
-
+    if (!list.length) { nav.innerHTML = ''; return; }
     nav.innerHTML = list.map((m) => {
       const active = m.path === activePath ? ' active' : '';
-      return `
-        <a href="#/${m.path}" class="nav-item${active}" data-path="${m.path}">
-          <span class="ico" aria-hidden="true">${m.icon}</span>
-          <span>${UI.escapeHtml(m.label)}</span>
-        </a>`;
+      return `<a href="#/${m.path}" class="nav-item${active}" data-path="${m.path}"><span class="ico">${m.icon}</span><span>${UI.escapeHtml(m.label)}</span></a>`;
     }).join('');
   }
 
@@ -162,33 +154,27 @@
     if (backdrop && document.body.contains(backdrop)) return backdrop;
     backdrop = document.createElement('div');
     backdrop.className = 'sidebar-backdrop';
-    backdrop.style.cssText = [
-      'position:fixed', 'inset:0', 'background:rgba(15,23,42,.45)',
-      'z-index:40', 'opacity:0', 'pointer-events:none', 'transition:opacity .25s ease',
-    ].join(';');
+    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:40;opacity:0;pointer-events:none;transition:opacity .25s ease';
     backdrop.addEventListener('click', closeSidebar);
     document.body.appendChild(backdrop);
     return backdrop;
   }
 
   function openSidebar() {
-    const sb = document.querySelector('.sidebar');
-    const bd = ensureBackdrop();
+    const sb = document.querySelector('.sidebar'); const bd = ensureBackdrop();
     if (sb) sb.classList.add('open');
     bd.style.opacity = '1'; bd.style.pointerEvents = 'auto';
   }
 
   function closeSidebar() {
-    const sb = document.querySelector('.sidebar');
-    const bd = ensureBackdrop();
+    const sb = document.querySelector('.sidebar'); const bd = ensureBackdrop();
     if (sb) sb.classList.remove('open');
     bd.style.opacity = '0'; bd.style.pointerEvents = 'none';
   }
 
   function toggleSidebar() {
     const sb = document.querySelector('.sidebar');
-    if (sb && sb.classList.contains('open')) closeSidebar();
-    else openSidebar();
+    if (sb && sb.classList.contains('open')) closeSidebar(); else openSidebar();
   }
 
   /* ============================================================
@@ -197,8 +183,7 @@
   let clockTimer = null;
 
   function startClock() {
-    const el = document.getElementById('clock');
-    if (!el) return;
+    const el = document.getElementById('clock'); if (!el) return;
     if (clockTimer) clearInterval(clockTimer);
     const tick = () => {
       const d = new Date();
@@ -206,8 +191,7 @@
       const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       el.textContent = `${day} • ${time}`;
     };
-    tick();
-    clockTimer = setInterval(tick, 1000);
+    tick(); clockTimer = setInterval(tick, 1000);
   }
 
   function stopClock() { if (clockTimer) { clearInterval(clockTimer); clockTimer = null; } }
@@ -236,15 +220,14 @@
 
     if (!route) {
       if (title) title.textContent = 'Tidak Ditemukan';
-      document.title = 'Tidak Ditemukan • E-Vote';
-      if (view) view.innerHTML = `<div class="card text-center" style="padding:40px"><h1 style="font-size:3rem;margin:0">404</h1><h3 style="margin-top:8px">Halaman Tidak Ditemukan</h3><p class="hint">Route "<code>${UI.escapeHtml(path)}</code>" tidak tersedia.</p><a href="#/${defaultPath()}" class="btn-primary" style="margin-top:16px">Kembali ke Dashboard</a></div>`;
+      if (view) view.innerHTML = `<div class="card text-center" style="padding:40px"><h1>404</h1><h3>Halaman Tidak Ditemukan</h3><a href="#/${defaultPath()}" class="btn-primary">Kembali</a></div>`;
       updateActive('');
       return;
     }
 
     const roleKey = String(u.role).toLowerCase();
     if (route.roles && route.roles.indexOf(roleKey) === -1) {
-      UI.toast('Anda tidak memiliki akses ke halaman ini', 'error');
+      UI.toast('Anda tidak memiliki akses', 'error');
       location.replace('#/' + defaultPath());
       return;
     }
@@ -259,12 +242,14 @@
     try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }
     catch (_) { window.scrollTo(0, 0); }
 
+    // ✅ TAMPILKAN SKELETON INSTAN (User merasa cepat)
     if (view) view.innerHTML = `<div class="card">${UI.skeleton(4)}</div>`;
 
-    try { await route.fn(); }
-    catch (err) {
+    try {
+      await route.fn();
+    } catch (err) {
       console.error('[router] view error:', err);
-      if (view) view.innerHTML = `<div class="card"><h3 style="color:var(--err)">Terjadi Kesalahan</h3><p class="hint">${UI.escapeHtml(err && err.message ? err.message : String(err))}</p><div class="row"><button class="btn-primary" type="button" onclick="location.reload()">Muat Ulang Halaman</button><a href="#/${defaultPath()}" class="btn-ghost">Kembali ke Dashboard</a></div></div>`;
+      if (view) view.innerHTML = `<div class="card"><h3 style="color:var(--err)">Terjadi Kesalahan</h3><p class="hint">${UI.escapeHtml(err && err.message ? err.message : String(err))}</p><button class="btn-primary" type="button" onclick="location.reload()">Muat Ulang</button></div>`;
     }
   }
 
@@ -308,43 +293,10 @@
     const nav = document.getElementById('nav');
     if (nav) nav.addEventListener('click', (e) => { if (e.target.closest('.nav-item')) closeSidebar(); });
 
-    /* ---------- ✅ LOGOUT BUTTON FIX (Anti Double Bind) ---------- */
-    document.querySelectorAll('[data-logout]').forEach((btn) => {
-      const newBtn = btn.cloneNode(true);
-      btn.parentNode.replaceChild(newBtn, btn);
-
-      newBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        let ok = true;
-        if (window.UI && UI.confirm) {
-          ok = await UI.confirm('Keluar dari aplikasi?', { okLabel: 'Ya, Keluar' });
-        } else {
-          ok = window.confirm('Keluar dari aplikasi?');
-        }
-
-        if (ok) {
-          // 1. Proses Logout via Auth (jika ada)
-          if (window.Auth && Auth.logout) {
-            Auth.logout({ redirect: false });
-          } 
-          // 2. Fallback hapus manual
-          else if (window.API) {
-            API.clearSession();
-          }
-
-          // 3. Paksa hapus semua sisa cache
-          try {
-            localStorage.removeItem('evote_token');
-            localStorage.removeItem('evote_user');
-            sessionStorage.clear();
-            if (window.Cache) Cache.clearAll();
-          } catch (_) {}
-
-          // 4. Tendang ke login
-          location.replace('login.html');
-        }
-      });
-    });
+    /* ============================================================
+     *  ⚠️ LOGOUT HANDLER DIPEGANG OLEH app.html (Capture Phase)
+     *  JANGAN pasang handler di sini untuk mencegah konflik.
+     *  ============================================================ */
 
     const btnRefresh = document.getElementById('btnGlobalRefresh');
     if (btnRefresh) btnRefresh.addEventListener('click', () => globalRefresh(btnRefresh));
@@ -352,14 +304,20 @@
     startClock();
     window.addEventListener('hashchange', navigate);
 
+    // ✅ PRELOAD SEMUA DATA DI BACKGROUND (PARALLEL)
     if (window.Cache && Cache.preloadAll) {
-      setTimeout(() => { Cache.preloadAll(); }, 1000); 
+      setTimeout(function () {
+        Cache.preloadAll().catch(function () {});
+      }, 800); // Delay singkat agar UI settle
     }
 
     window.addEventListener('beforeunload', () => { cleanup(); stopClock(); });
     navigate();
   }
 
+  /* ============================================================
+   *  10. BOOT
+   * ============================================================ */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

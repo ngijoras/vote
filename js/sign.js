@@ -1,5 +1,5 @@
 /* ============================================================
-   E-VOTE • sign.js (FULL FIX - FINAL + UNDO SUPPORT)
+   E-VOTE • sign.js (FULL FIX - FINAL + UNDO SOLID)
    DPR-aware canvas signature pad.
    Export: toDataURL() legacy | getBase64() JPEG DataURL
    ============================================================ */
@@ -40,7 +40,7 @@ window.Sign = (function () {
     let hasDraw = false;
     let destroyed = false;
     let resizeTimer = null;
-    let history = []; // Menyimpan riwayat coretan untuk Undo
+    let history = []; // ✅ Riwayat coretan untuk Undo
 
     /* ---------- Snapshot / Restore ---------- */
     function snapshot() {
@@ -200,11 +200,17 @@ window.Sign = (function () {
         ctx.fillStyle = '#0f172a';
         ctx.strokeStyle = '#0f172a';
         hasDraw = false;
-        history = []; // Reset history
+        history = []; // ✅ Reset history
       },
 
       undo: function () {
-        if (destroyed || history.length === 0) return;
+        if (destroyed) return;
+        
+        // Jika history kosong, berarti tidak ada yang bisa di-undo
+        if (history.length === 0) {
+          this.clear();
+          return;
+        }
         
         const prevState = history.pop();
         const rect = canvas.getBoundingClientRect();

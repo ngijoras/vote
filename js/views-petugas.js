@@ -1,23 +1,29 @@
 /* ============================================================
    E-VOTE • views-petugas.js (FULL FIX - FINAL)
-   Role: PETUGAS (asisten panitia)
-   Fitur: Preload, Auto-Sync, Kunci Bilik, Suara TTS, Undo TTD.
+   Role: PETUGAS — Anti Loading Abadi, Kunci Bilik, TTD Solid.
    ============================================================ */
 window.ViewsPetugas = (function () {
   'use strict';
 
-  const view = () => document.getElementById('view');
-  const me   = () => API.user() || {};
+  const view   = () => document.getElementById('view');
+  const me     = () => API.user() || {};
   const isTrue = (v) => v === true || String(v) === 'TRUE' || String(v) === 'true';
-  const esc = (s) => UI.escapeHtml(s);
+  const esc    = (s) => UI.escapeHtml(s);
 
-  /* ---------- Safe fetch (Gunakan Cache untuk Preload) ---------- */
+  /* ---------- Safe fetch (Fallback ke API) ---------- */
   async function fetchData(action, params, force) {
-    if (window.Cache) return Cache.fetchApi(action, params, force);
+    if (window.Cache) {
+      try {
+        return await Cache.fetchApi(action, params, force);
+      } catch (e) {
+        console.warn('[fetchData] Cache error, fallback ke API:', e);
+        return await API.post(action, params);
+      }
+    }
     return API.post(action, params);
   }
 
-  /* ---------- Polling ---------- */
+  /* ---------- Polling helper ---------- */
   const polls = {};
   function setPoll(id, ms, fn) {
     clearPoll(id);
@@ -26,7 +32,8 @@ window.ViewsPetugas = (function () {
       if (!document.getElementById(id)) { clearPoll(id); return; }
       if (busy) return;
       busy = true;
-      try { await fn(); } catch (e) { console.error('[petugas poll]', e); } finally { busy = false; }
+      try { await fn(); } catch (e) { console.error('[petugas poll]', e); }
+      finally { busy = false; }
     }, ms);
   }
   function clearPoll(id) { if (polls[id]) { clearInterval(polls[id]); delete polls[id]; } }
@@ -45,57 +52,56 @@ window.ViewsPetugas = (function () {
   async function dashboard() {
     clearAllPolls();
     safeQRStop();
-    const el = view();
-    if (!el) return;
-    
+    const el = view(); if (!el) return;
     el.innerHTML = `<div id="petugasDash">${UI.skeleton(4)}</div>`;
     await loadDash();
-    setPoll('petugasDash', 8000, loadDash); // Realtime 8 detik
+    setPoll('petugasDash', 8000, loadDash);
   }
 
   async function loadDash() {
-    const area = document.getElementById('petugasDash');
-    if (!area) return;
+    const area = document.getElementById('petugasDash'); if (!area) return;
 
-    // ✅ Gunakan fetchData (Cache) dengan forceRefresh true
-    const [sumRes, votersRes, boothsRes] = await Promise.all([
-      fetchData('dash.summary', {}, true),
-      fetchData('list', { sheet: 'voters' }, true),
-      fetchData('booth.status', {}, true),
-    ]);
+    try {
+      const [sumRes, votersRes, boothsRes] = await Promise.all([
+        fetchData('dash.summary', {}, true),
+        fetchData('list', { sheet: 'voters' }, false),
+        fetchData('booth.status', {}, true),
+      ]);
 
-    if (!sumRes || !sumRes.success) {
-      area.innerHTML = `<div class="card"><p class="hint" style="color:var(--err)">${esc(sumRes && sumRes.message || 'Gagal memuat data')}</p></div>`;
-      return;
-    }
+      if (!sumRes || !sumRes.success) {
+        throw new Error((sumRes && sumRes.message) || 'Gagal memuat');
+      }
 
-    const d = sumRes.data || {};
-    const voters = votersRes.data || [];
-    const booths = boothsRes.data || [];
+      const d = sumRes.data || {};
+      const voters = (votersRes && votersRes.success && votersRes.data) || [];
+      const booths = (boothsRes && boothsRes.success && boothsRes.data) || [];
 
-    const waiting = voters.filter(v => v.checkinAt && !isTrue(v.voted) && !v.boothId);
-    const notCheckedIn = voters.filter(v => !v.checkinAt && !isTrue(v.voted));
-    const activeBooths = booths.filter(b => b.currentVoterId);
+      const waiting = voters.filter(v => v.checkinAt && !isTrue(v.voted) && !v.boothId);
+      const notCheckedIn = voters.filter(v => !v.checkinAt && !isTrue(v.voted));
+      const activeBooths = booths.filter(b => b.currentVoterId);
 
-    area.innerHTML = `
-      <div class="grid-3">
-        <div class="stat"><small>Total Pemilih</small><h3>${d.totalVoters || 0}</h3></div>
-        <div class="stat"><small>Sudah Memilih</small><h3>${d.voted || 0}</h3></div>
-        <div class="stat"><small>Kursi Tunggu</small><h3>${waiting.length}</h3></div>
-        <div class="stat"><small>Bilik Aktif</small><h3>${activeBooths.length} / ${d.boothsTotal || 0}</h3></div>
-        <div class="stat"><small>Belum Absen</small><h3>${notCheckedIn.length}</h3></div>
-        <div class="stat"><small>Bilik Siap</small><h3>${d.boothsReady || 0}</h3></div>
-      </div>
-
-      <div class="card">
-        <h3>Aksi Cepat</h3>
-        <div class="row">
-          <a href="#/petugas/attendance" class="btn-primary">📷 Absensi Pemilih</a>
-          <a href="#/petugas/queue" class="btn-ghost">🚪 Antrian & Bilik</a>
-          <a href="#/petugas/results" class="btn-ghost">📈 Hasil Real-Time</a>
+      area.innerHTML = `
+        <div class="grid-3">
+          <div class="stat"><small>Total Pemilih</small><h3>${d.totalVoters || 0}</h3></div>
+          <div class="stat"><small>Sudah Memilih</small><h3>${d.voted || 0}</h3></div>
+          <div class="stat"><small>Kursi Tunggu</small><h3>${waiting.length}</h3></div>
+          <div class="stat"><small>Bilik Aktif</small><h3>${activeBooths.length} / ${d.boothsTotal || 0}</h3></div>
+          <div class="stat"><small>Belum Absen</small><h3>${notCheckedIn.length}</h3></div>
+          <div class="stat"><small>Bilik Siap</small><h3>${d.boothsReady || 0}</h3></div>
         </div>
-      </div>
-    `;
+        <div class="card">
+          <h3>Aksi Cepat</h3>
+          <div class="row">
+            <a href="#/petugas/attendance" class="btn-primary">📷 Absensi Pemilih</a>
+            <a href="#/petugas/queue" class="btn-ghost">🚪 Antrian & Bilik</a>
+            <a href="#/petugas/results" class="btn-ghost">📈 Hasil Real-Time</a>
+          </div>
+        </div>
+      `;
+    } catch (err) {
+      console.error('[dashboard] error:', err);
+      area.innerHTML = `<div class="card" style="background:#fef2f2;border:1px solid #fecaca;"><h4 style="color:#dc2626">Gagal Memuat Dashboard</h4><p class="hint">${esc(err.message)}</p><button class="btn-primary btn-sm" onclick="ViewsPetugas.dashboard()">🔄 Coba Lagi</button></div>`;
+    }
   }
 
   /* ============================================================
@@ -106,8 +112,7 @@ window.ViewsPetugas = (function () {
     safeQRStop();
     checkinState = { active: false, voter: null, pad: null };
 
-    const el = view();
-    if (!el) return;
+    const el = view(); if (!el) return;
 
     el.innerHTML = `
       <div class="card" id="scanCard">
@@ -171,9 +176,8 @@ window.ViewsPetugas = (function () {
     const readerEl = document.getElementById('qrReader');
     if (!readerEl) return;
     readerEl.innerHTML = '';
-    try {
-      await QR.scanOnce('qrReader', onCodeScanned, () => {});
-    } catch (e) { console.error('[scan]', e); }
+    try { await QR.scanOnce('qrReader', onCodeScanned, () => {}); }
+    catch (e) { console.error('[scan]', e); }
   }
 
   async function restartScanner() {
@@ -191,14 +195,12 @@ window.ViewsPetugas = (function () {
     await handleCode(code);
   }
 
-  async function onCodeScanned(code) {
-    await handleCode(code);
-  }
+  async function onCodeScanned(code) { await handleCode(code); }
 
   async function handleCode(code) {
     if (checkinState.active) return;
 
-    const res = await API.post('voters.byCode', { code }); // Bypass cache untuk data terbaru
+    const res = await API.post('voters.byCode', { code });
     if (!res.success) {
       UI.toast(res.message || 'Kode tidak valid', 'error');
       restartScanAfterDelay();
@@ -227,32 +229,34 @@ window.ViewsPetugas = (function () {
   function showCheckinCard(voter) {
     document.getElementById('scanCard').style.display    = 'none';
     document.getElementById('successCard').style.display = 'none';
-    const card = document.getElementById('checkinCard');
-    card.style.display = 'block';
+    document.getElementById('checkinCard').style.display = 'block';
 
     document.getElementById('ciName').textContent = voter.name || 'Pemilih';
-    document.getElementById('ciMeta').textContent =
-      `Kode: ${voter.code || '-'} • RT ${voter.rt || '-'} / RW ${voter.rw || '-'}`;
+    document.getElementById('ciMeta').textContent = `Kode: ${voter.code || '-'} • RT ${voter.rt || '-'} / RW ${voter.rw || '-'}`;
 
     const padHost = document.getElementById('sigPad');
     padHost.innerHTML = '';
-    
-    // ✅ Inisialisasi TTD setelah DOM siap
+
     setTimeout(() => {
       try {
         checkinState.pad = Sign.mount(padHost);
-        
-        // Bind tombol Undo & Clear secara eksplisit
-        document.getElementById('btnUndoCheckin').onclick = function(e) {
-          e.preventDefault();
-          if (checkinState.pad && checkinState.pad.undo) checkinState.pad.undo();
-        };
-        
-        document.getElementById('btnClearCheckin').onclick = function(e) {
-          e.preventDefault();
-          if (checkinState.pad && checkinState.pad.clear) checkinState.pad.clear();
-        };
-        
+
+        const btnUndo = document.getElementById('btnUndoCheckin');
+        if (btnUndo) {
+          btnUndo.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            if (checkinState.pad && checkinState.pad.undo) checkinState.pad.undo();
+          });
+        }
+
+        const btnClear = document.getElementById('btnClearCheckin');
+        if (btnClear) {
+          btnClear.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            if (checkinState.pad && checkinState.pad.clear) checkinState.pad.clear();
+          });
+        }
+
       } catch (e) {
         UI.toast('Gagal memuat pad tanda tangan', 'error');
         checkinState.pad = null;
@@ -287,17 +291,13 @@ window.ViewsPetugas = (function () {
       return;
     }
 
-    // ✅ SUARA OTOMATIS (TTS)
     const boothName = r.voter.booth || null;
     const voterName = r.voter.name;
     
     setTimeout(() => {
       try {
-        if (boothName) {
-          Voice.speak(`Pemilih ${voterName}, silakan menuju ${boothName}.`);
-        } else {
-          Voice.speak(`Pemilih ${voterName}, bilik penuh. Silakan duduk di kursi tunggu.`);
-        }
+        if (boothName) Voice.speak(`Pemilih ${voterName}, silakan menuju ${boothName}.`);
+        else Voice.speak(`Pemilih ${voterName}, bilik penuh. Silakan duduk di kursi tunggu.`);
       } catch (_) {}
     }, 1000);
 
@@ -311,10 +311,7 @@ window.ViewsPetugas = (function () {
     const card = document.getElementById('successCard');
     card.style.display = 'block';
     document.getElementById('successName').textContent = name;
-    document.getElementById('successMsg').textContent =
-      boothName
-        ? `Silakan menuju ${boothName}.`
-        : `Bilik penuh. Silakan duduk di kursi tunggu.`;
+    document.getElementById('successMsg').textContent = boothName ? `Silakan menuju ${boothName}.` : `Bilik penuh. Silakan duduk di kursi tunggu.`;
 
     const btnNext = document.getElementById('btnNextScan');
     btnNext.onclick = resetCheckin;
@@ -340,9 +337,7 @@ window.ViewsPetugas = (function () {
     startScanner();
   }
 
-  function restartScanAfterDelay() {
-    setTimeout(resetCheckin, 1200);
-  }
+  function restartScanAfterDelay() { setTimeout(resetCheckin, 1200); }
 
   /* ============================================================
    *  3. ANTRIAN & BILIK (KUNCI BILIK & SUARA)
@@ -350,8 +345,7 @@ window.ViewsPetugas = (function () {
   async function queue() {
     clearAllPolls(); safeQRStop();
 
-    const el = view();
-    if (!el) return;
+    const el = view(); if (!el) return;
 
     el.innerHTML = `
       <div class="grid-2">
@@ -375,7 +369,6 @@ window.ViewsPetugas = (function () {
           <div id="waitingList" style="margin-top:12px">${UI.skeleton(2)}</div>
         </div>
       </div>
-
       <div class="card">
         <h3>Kontrol Manual</h3>
         <div class="row">
@@ -386,24 +379,32 @@ window.ViewsPetugas = (function () {
     `;
 
     await refreshQueue();
-    setPoll('boothList', 3000, refreshQueue); // Update status bilik tiap 3 detik
+    setPoll('boothList', 3000, refreshQueue);
   }
 
   async function refreshQueue() {
-    // ✅ Gunakan fetchData (Cache) dengan forceRefresh true
-    const [bRes, vRes] = await Promise.all([
-      fetchData('booth.status', {}, true),
-      fetchData('list', { sheet: 'voters' }, true),
-    ]);
-    if (!bRes || !bRes.success || !vRes || !vRes.success) return;
+    const bList = document.getElementById('boothList'); if (!bList) return;
 
-    boothsCache = bRes.data || [];
-    const voters = vRes.data || [];
-    waitingCache = voters
-      .filter(v => v.checkinAt && !isTrue(v.voted) && !v.boothId)
-      .sort((a, b) => new Date(a.checkinAt) - new Date(b.checkinAt));
+    try {
+      const [bRes, vRes] = await Promise.all([
+        fetchData('booth.status', {}, true),
+        fetchData('list', { sheet: 'voters' }, true),
+      ]);
 
-    renderQueue();
+      if (!bRes || !bRes.success) throw new Error((bRes && bRes.message) || 'Gagal memuat bilik');
+      if (!vRes || !vRes.success) throw new Error((vRes && vRes.message) || 'Gagal memuat pemilih');
+
+      boothsCache = bRes.data || [];
+      const voters = vRes.data || [];
+      waitingCache = voters
+        .filter(v => v.checkinAt && !isTrue(v.voted) && !v.boothId)
+        .sort((a, b) => new Date(a.checkinAt) - new Date(b.checkinAt));
+
+      renderQueue();
+    } catch (err) {
+      console.error('[queue] error:', err);
+      bList.innerHTML = `<div class="card" style="background:#fef2f2;border:1px solid #fecaca;padding:20px;"><h4 style="color:#dc2626">Gagal Memuat Antrian</h4><p class="hint">${esc(err.message)}</p><button class="btn-primary btn-sm" onclick="ViewsPetugas.queue()">🔄 Coba Lagi</button></div>`;
+    }
   }
 
   function renderQueue() {
@@ -437,14 +438,10 @@ window.ViewsPetugas = (function () {
               
               <div class="row" style="margin:0;margin-left:auto;gap:4px">
                 ${isOnline && !active
-                  ? `<button class="btn-ghost btn-sm" type="button"
-                        onclick="ViewsPetugas.authorizeBooth('${esc(b.id)}', ${!authorized})">
-                        ${authorized ? '🔒 Kunci' : '🔓 Buka'}
-                     </button>`
+                  ? `<button class="btn-ghost btn-sm" type="button" onclick="ViewsPetugas.authorizeBooth('${esc(b.id)}', ${!authorized})">${authorized ? '🔒 Kunci' : '🔓 Buka'}</button>`
                   : ''}
                 ${active
-                  ? `<button class="btn-ghost btn-sm" type="button"
-                        onclick="ViewsPetugas.freeBooth('${esc(b.id)}')">Kosongkan</button>`
+                  ? `<button class="btn-ghost btn-sm" type="button" onclick="ViewsPetugas.freeBooth('${esc(b.id)}')">Kosongkan</button>`
                   : ''}
               </div>
             </div>`;
@@ -471,7 +468,6 @@ window.ViewsPetugas = (function () {
     try {
       const r = await API.post('booth.authorize', { boothId, isAuthorized: status });
       if (!r.success) { UI.toast(r.message || 'Gagal', 'error'); return; }
-      
       UI.toast(status ? 'Bilik dibuka! Menunggu pemilih...' : 'Bilik dikunci.', 'success');
       if (window.Cache) Cache.clearAll();
       await refreshQueue();
@@ -488,29 +484,16 @@ window.ViewsPetugas = (function () {
   }
 
   async function autoAssignAll() {
-    if (!waitingCache.length) {
-      UI.toast('Tidak ada pemilih menunggu', 'warn');
-      return;
-    }
+    if (!waitingCache.length) { UI.toast('Tidak ada pemilih menunggu', 'warn'); return; }
     const freeBooths = boothsCache.filter(b => !b.currentVoterId && isTrue(b.isAuthorized));
-    if (!freeBooths.length) {
-      UI.toast('Tidak ada bilik kosong yang terbuka. Buka bilik terlebih dahulu.', 'warn');
-      return;
-    }
+    if (!freeBooths.length) { UI.toast('Tidak ada bilik kosong yang terbuka. Buka bilik terlebih dahulu.', 'warn'); return; }
 
     const n = Math.min(freeBooths.length, waitingCache.length);
     const pairs = [];
-    for (let i = 0; i < n; i++) {
-      pairs.push({ booth: freeBooths[i], voter: waitingCache[i] });
-    }
+    for (let i = 0; i < n; i++) pairs.push({ booth: freeBooths[i], voter: waitingCache[i] });
 
     for (const p of pairs) {
-      await API.post('booth.setCurrent', {
-        boothId: p.booth.id,
-        voterId: p.voter.id,
-        voterName: p.voter.name,
-        name: p.booth.name,
-      });
+      await API.post('booth.setCurrent', { boothId: p.booth.id, voterId: p.voter.id, voterName: p.voter.name, name: p.booth.name });
     }
 
     const names = pairs.map(p => p.voter.name).join(', ');
@@ -523,13 +506,8 @@ window.ViewsPetugas = (function () {
    *  EXPORTS
    * ============================================================ */
   return {
-    dashboard,
-    attendance,
-    queue,
-    refreshQueue,
-    authorizeBooth,
-    freeBooth,
-    autoAssignAll,
+    dashboard, attendance, queue,
+    refreshQueue, authorizeBooth, freeBooth, autoAssignAll,
     _clearAllPolls: clearAllPolls,
   };
 })();
