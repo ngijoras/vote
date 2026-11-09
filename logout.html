@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#dc2626">
+  <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  <title>Logout • E-Vote</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      text-align: center;
+      padding: 40px 20px;
+      background: linear-gradient(135deg, #fee2e2 0%, #fef2f2 100%);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0f172a;
+    }
+    .card {
+      max-width: 460px;
+      width: 100%;
+      background: #fff;
+      padding: 40px 28px;
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(220, 38, 38, 0.15), 0 4px 12px rgba(0, 0, 0, 0.05);
+      border: 1px solid #fecaca;
+    }
+    .icon-wrap {
+      width: 80px; height: 80px;
+      margin: 0 auto 20px;
+      background: linear-gradient(135deg, #fee2e2, #fecaca);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 2.5rem;
+    }
+    h2 {
+      color: #0f172a;
+      margin: 0 0 8px;
+      font-size: 1.5rem;
+      font-weight: 800;
+    }
+    p {
+      color: #64748b;
+      margin: 0 0 24px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid #f1f5f9;
+      border-top-color: #dc2626;
+      border-radius: 50%;
+      margin: 0 auto 24px;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 24px;
+      min-height: 20px;
+      font-weight: 500;
+    }
+    a.manual-btn {
+      display: inline-block;
+      padding: 12px 28px;
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+      transition: .2s;
+    }
+    a.manual-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(220, 38, 38, 0.4);
+    }
+    .countdown {
+      font-weight: 700;
+      color: #dc2626;
+    }
+    .footer-text {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-wrap">🚪</div>
+    <h2>Sedang Logout…</h2>
+    <p>Menghapus sesi, cache, dan data lokal Anda.</p>
+    
+    <div class="spinner"></div>
+    <div class="status" id="statusText">Menghapus data sesi…</div>
+
+    <a href="login.html" class="manual-btn" id="manualLogout">
+      ⚡ Klik di Sini untuk Login
+    </a>
+
+    <div class="footer-text">
+      Redirect otomatis dalam <span class="countdown" id="countdown">3</span> detik…
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    var status = document.getElementById('statusText');
+    var countdownEl = document.getElementById('countdown');
+
+    function log(msg) {
+      console.log('[Logout]', msg);
+      if (status) status.textContent = msg;
+    }
+
+    /* ============================================================
+     *  FASE 1: Hapus localStorage (evote_* dan semua)
+     *  ============================================================ */
+    try {
+      var keysToRemove = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        keysToRemove.push(localStorage.key(i));
+      }
+      keysToRemove.forEach(function (k) {
+        try { localStorage.removeItem(k); } catch (_) {}
+      });
+      localStorage.clear();
+      log('✅ localStorage dihapus');
+    } catch (e) {
+      console.warn('[Logout] localStorage error:', e);
+    }
+
+    /* ============================================================
+     *  FASE 2: Hapus sessionStorage
+     *  ============================================================ */
+    try {
+      sessionStorage.clear();
+      log('✅ sessionStorage dihapus');
+    } catch (e) {
+      console.warn('[Logout] sessionStorage error:', e);
+    }
+
+    /* ============================================================
+     *  FASE 3: Hapus cookie
+     *  ============================================================ */
+    try {
+      var cookies = document.cookie.split(";");
+      for (var j = 0; j < cookies.length; j++) {
+        var c = cookies[j];
+        var eqPos = c.indexOf("=");
+        var name = eqPos > -1 ? c.substr(0, eqPos) : c;
+        document.cookie = name.trim() + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+        document.cookie = name.trim() + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=" + location.hostname;
+      }
+      log('✅ Cookie dihapus');
+    } catch (e) {
+      console.warn('[Logout] cookie error:', e);
+    }
+
+    /* ============================================================
+     *  FASE 4: Unregister Service Worker (jika ada)
+     *  ============================================================ */
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        registrations.forEach(function (r) {
+          try { r.unregister(); } catch (_) {}
+        });
+        log('✅ Service Worker dibersihkan');
+      }).catch(function () {});
+    }
+
+    /* ============================================================
+     *  FASE 5: Force redirect (FALLBACK BERLAPIS)
+     *  ============================================================ */
+    function forceRedirect() {
+      log('🔄 Mengalihkan ke login…');
+      
+      try {
+        // Metode 1: location.replace (paling kuat)
+        window.location.replace('login.html');
+      } catch (e1) {
+        try {
+          // Metode 2: location.href
+          window.location.href = 'login.html';
+        } catch (e2) {
+          try {
+            // Metode 3: location.assign
+            window.location.assign('login.html');
+          } catch (e3) {
+            // Metode 4: Meta refresh (terakhir)
+            var meta = document.createElement('meta');
+            meta.httpEquiv = 'refresh';
+            meta.content = '0;url=login.html';
+            document.head.appendChild(meta);
+          }
+        }
+      }
+    }
+
+    /* ============================================================
+     *  COUNTDOWN ANIMATION
+     *  ============================================================ */
+    var countdown = 3;
+    if (countdownEl) countdownEl.textContent = countdown;
+
+    var interval = setInterval(function () {
+      countdown--;
+      if (countdownEl) countdownEl.textContent = countdown > 0 ? countdown : '0';
+      if (countdown <= 0) {
+        clearInterval(interval);
+        forceRedirect();
+      }
+    }, 1000);
+
+    /* ============================================================
+     *  FALLBACK TIMER: Paksa redirect setelah 1500ms (safety)
+     *  ============================================================ */
+    setTimeout(function () {
+      clearInterval(interval);
+      forceRedirect();
+    }, 1500);
+
+    /* ============================================================
+     *  MANUAL BUTTON: Jika user klik tombol manual
+     *  ============================================================ */
+    var manualBtn = document.getElementById('manualLogout');
+    if (manualBtn) {
+      manualBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        forceRedirect();
+      });
+    }
+
+    /* ============================================================
+     *  FALLBACK EXTREME: Setelah 5 detik, jika masih di halaman ini,
+     *  tampilkan pesan & tombol manual yang lebih menonjol
+     *  ============================================================ */
+    setTimeout(function () {
+      if (location.href.indexOf('logout.html') !== -1) {
+        if (status) {
+          status.innerHTML = '⚠️ Redirect otomatis gagal. <strong>Klik tombol di bawah ini.</strong>';
+          status.style.color = '#dc2626';
+        }
+        if (manualBtn) {
+          manualBtn.style.animation = 'pulse 1s infinite';
+          manualBtn.style.fontSize = '1rem';
+        }
+      }
+    }, 5000);
+
+  })();
+  </script>
+
+  <style>
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+  </style>
+</body>
+</html>

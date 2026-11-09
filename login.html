@@ -15,41 +15,165 @@
 
   <style>
     /* =========================================
-       LOGIN PAGE STYLES
+       LOGIN PAGE STYLES (HIGH CONTRAST FIX)
        ========================================= */
+    body.landing {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      /* ✅ Background gradien gelap agar kartu putih menonjol */
+      background: 
+        radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.15), transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.15), transparent 40%),
+        #e2e8f0 !important;
+      padding: 24px;
+    }
+
+    .hero {
+      width: 100%;
+      max-width: 440px;
+    }
+
+    .brand {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .brand img {
+      max-height: 64px;
+      margin: 0 auto 14px;
+    }
+    .brand h1 {
+      font-size: 2rem;
+      margin: 8px 0 4px;
+      background: linear-gradient(135deg, #1e3a8a, #4c1d95) !important;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 800;
+    }
+    .brand .subtitle {
+      color: #475569 !important;
+      margin: 0;
+      font-size: .92rem;
+      font-weight: 600;
+    }
+
+    /* Badge Sistem Aktif */
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: #dcfce7 !important;
+      color: #166534 !important;
+      border: 1px solid #bbf7d0 !important;
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 700;
+      margin-top: 8px;
+      letter-spacing: .02em;
+    }
+    .brand-badge .dot-live {
+      width: 6px; height: 6px;
+      background: #16a34a;
+      border-radius: 50%;
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .4; transform: scale(.75); }
+    }
+
+    /* Kartu Login */
+    .login-card {
+      background: #ffffff !important;
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 18px;
+      box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.15) !important;
+      padding: 32px;
+    }
+    .login-card h2 {
+      color: #0f172a !important;
+      margin-top: 0;
+      font-size: 1.5rem;
+    }
+    .login-card .hint {
+      color: #475569 !important;
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-top: 0;
+    }
+
+    /* Label & Input */
     .landing-extras {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      margin-top: 16px;
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .landing-extras label > span {
+      color: #1e293b !important;
+      font-weight: 700 !important;
+      font-size: 0.9rem !important;
+      margin-bottom: 6px;
+      display: block;
+    }
+    .input {
+      background: #f8fafc !important;
+      border: 1px solid #cbd5e1 !important;
+      color: #0f172a !important;
+      font-weight: 500;
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      transition: all 0.2s;
+    }
+    .input:focus {
+      background: #ffffff !important;
+      border-color: #2563eb !important;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15) !important;
+      outline: none;
+    }
+    .input::placeholder {
+      color: #94a3b8 !important;
+      font-weight: 400;
     }
 
-    .password-wrap { position: relative; }
-    .password-wrap input { padding-right: 44px; }
+    /* Password Toggle */
+    .password-wrap {
+      position: relative;
+    }
+    .password-wrap input {
+      padding-right: 44px;
+    }
     .pwd-toggle {
       position: absolute;
       right: 6px;
       top: 50%;
       transform: translateY(-50%);
-      width: 36px;
-      height: 36px;
+      width: 36px; height: 36px;
       display: grid;
       place-items: center;
       border-radius: 10px;
-      color: var(--muted);
+      color: #64748b !important;
       transition: .15s ease;
       border: 0;
       background: transparent;
       cursor: pointer;
     }
-    .pwd-toggle:hover { background: #f1f5f9; color: var(--text); }
+    .pwd-toggle:hover {
+      background: #e2e8f0 !important;
+      color: #0f172a !important;
+    }
 
+    /* Remember Me */
     .remember-row {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: .85rem;
-      color: var(--muted);
+      color: #334155 !important;
+      font-weight: 500;
       margin: 4px 0 0;
       user-select: none;
       cursor: pointer;
@@ -57,35 +181,49 @@
     .remember-row input[type="checkbox"] {
       width: 16px;
       height: 16px;
-      accent-color: var(--primary);
+      accent-color: #2563eb;
       cursor: pointer;
     }
 
+    /* Tombol Masuk */
     .login-card .btn-primary {
       width: 100%;
-      margin-top: 16px;
-      padding: 13px;
+      margin-top: 20px;
+      padding: 14px;
       font-size: .95rem;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
+      background: linear-gradient(135deg, #1d4ed8, #4338ca) !important;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      border-radius: 10px;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      transition: .2s;
     }
-
+    .login-card .btn-primary:hover {
+      background: linear-gradient(135deg, #1e40af, #3730a3) !important;
+      transform: translateY(-1px);
+    }
+    .login-card .btn-primary:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
     .login-card .btn-primary .spinner-inline {
-      width: 14px;
-      height: 14px;
+      width: 14px; height: 14px;
       border: 2px solid rgba(255,255,255,.4);
       border-top-color: #fff;
       border-radius: 50%;
       animation: spin .7s linear infinite;
     }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* ---------- Banner ---------- */
+    /* Banner Error */
     .banner {
       padding: 10px 14px;
       border-radius: 10px;
@@ -94,55 +232,38 @@
       display: none;
       margin-bottom: 4px;
       animation: slideIn .2s ease;
+      font-weight: 600;
     }
     .banner.show { display: block; }
-    .banner.error   { background: var(--err-soft);     color: var(--err-text);     border: 1px solid #fecaca; }
-    .banner.warn    { background: var(--warn-soft);    color: var(--warn-text);    border: 1px solid #fde68a; }
-    .banner.info    { background: var(--primary-soft); color: var(--primary-700);  border: 1px solid #bfdbfe; }
-    .banner.success { background: var(--ok-soft);      color: var(--ok-text);      border: 1px solid #bbf7d0; }
-
+    .banner.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .banner.warn  { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .banner.info  { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .banner.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     @keyframes slideIn {
       from { opacity: 0; transform: translateY(-4px); }
-      to   { opacity: 1; transform: translateY(0); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
-    /* ---------- Brand badge ---------- */
-    .brand-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      background: var(--primary-50);
-      color: var(--primary-700);
-      border-radius: 999px;
-      font-size: .72rem;
-      font-weight: 600;
-      margin-top: 8px;
-      letter-spacing: .02em;
+    /* Footer */
+    .footer {
+      text-align: center;
+      color: #64748b !important;
+      margin-top: 24px;
+      font-size: .8rem;
+      font-weight: 500;
     }
-    .brand-badge .dot-live {
-      width: 6px;
-      height: 6px;
-      background: var(--ok);
-      border-radius: 50%;
-      animation: pulse 1.6s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%      { opacity: .4; transform: scale(.75); }
-    }
-
     .version-stamp {
       font-size: .7rem;
-      color: var(--muted-2);
+      color: #94a3b8 !important;
       margin-top: 6px;
     }
 
-    /* ---------- Mobile optimization ---------- */
+    /* Mobile */
     @media (max-width: 480px) {
       input, select, textarea {
         font-size: 16px !important; /* Anti-zoom iOS */
       }
+      .login-card { padding: 24px; }
     }
   </style>
 </head>
@@ -258,14 +379,14 @@
     }
 
     /* =========================================================
-       CONFIG GUARD (BASE_URL belum di-set)
+       CONFIG GUARD
        ========================================================= */
     if (window.API && API.isConfigured && !API.isConfigured()) {
       showBanner('Backend belum dikonfigurasi. Buka js/api.js dan ganti BASE_URL.', 'warn');
     }
 
     /* =========================================================
-       SESSION EXPIRED (dari ?expired=1)
+       SESSION EXPIRED
        ========================================================= */
     try {
       const urlParams = new URLSearchParams(location.search);
@@ -279,7 +400,6 @@
        ========================================================= */
     try {
       if (window.Auth && Auth.isLoggedIn && Auth.isLoggedIn()) {
-        // Redirect ke home route sesuai role
         if (Auth.homeForRole) {
           const target = Auth.homeForRole(Auth.role ? Auth.role() : '');
           location.replace('app.html' + (target.startsWith('#') ? target : ''));
@@ -324,7 +444,7 @@
     }
 
     /* =========================================================
-       ROLE → REDIRECT TARGET (✅ + coklit)
+       ROLE → REDIRECT TARGET
        ========================================================= */
     function roleRedirect(role) {
       switch (String(role || '').toLowerCase()) {
@@ -356,7 +476,6 @@
 
       let res;
       try {
-        // Prefer Auth.login jika ada (untuk event emit), fallback ke API
         if (window.Auth && Auth.login) {
           res = await Auth.login(username, password);
         } else {
@@ -375,10 +494,9 @@
         return;
       }
 
-      /* ---------- Simpan sesi (jika belum dari Auth.login) ---------- */
+      /* Simpan sesi */
       try {
         if (res.token && res.user && window.Auth && Auth.setSession) {
-          // Auth.login sudah setSession; hanya panggil jika lewat API langsung
           if (!Auth.isLoggedIn || !Auth.isLoggedIn()) {
             Auth.setSession(res.token, res.user);
           }
@@ -387,7 +505,7 @@
         }
       } catch (_) {}
 
-      /* ---------- Remember username ---------- */
+      /* Remember username */
       try {
         const shouldRemember = remember && remember.checked;
         if (window.Auth && Auth.saveRememberedUsername) {
@@ -399,13 +517,13 @@
         }
       } catch (_) {}
 
-      /* ---------- Feedback UI ---------- */
+      /* Feedback UI */
       if (loginBtn) {
         loginBtn.innerHTML = '<span class="spinner-inline"></span> Berhasil…';
       }
       showBanner('Login berhasil. Mengalihkan…', 'success');
 
-      /* ---------- Redirect berdasarkan role ---------- */
+      /* Redirect berdasarkan role */
       const target = roleRedirect(res.user && res.user.role);
       setTimeout(function () { location.replace(target); }, 350);
     });
@@ -413,7 +531,6 @@
     /* =========================================================
        UX HELPERS
        ========================================================= */
-    /* Enter di username → fokus ke password */
     if (usernameI) {
       usernameI.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
@@ -423,12 +540,10 @@
       });
     }
 
-    /* Clear banner saat user mengetik */
     [usernameI, passwordI].forEach(function (el) {
       if (el) el.addEventListener('input', clearBanner);
     });
 
-    /* Auto-focus password jika username sudah terisi */
     if (usernameI && passwordI && usernameI.value && !passwordI.value) {
       setTimeout(function () { try { passwordI.focus(); } catch (_) {} }, 100);
     }

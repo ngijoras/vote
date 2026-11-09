@@ -32,6 +32,25 @@
     #app { opacity: 0; transition: opacity 0.2s ease; }
     #app.ready { opacity: 1; }
 
+    /* ✅ Styling Khusus Tombol Logout sebagai Link */
+    a.btn-logout-link {
+      display: block;
+      text-align: center;
+      text-decoration: none;
+      color: var(--err-text, #991b1b);
+      background: var(--err-soft, #fee2e2);
+      border: 1px solid #fecaca;
+      padding: 11px 18px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: .92rem;
+      transition: .2s;
+    }
+    a.btn-logout-link:hover {
+      background: #fecaca;
+      color: #991b1b;
+    }
+
     @media (max-width: 600px) {
       .mobile-hide { display: none !important; }
       #btnGlobalRefresh { padding: 8px; border-radius: 50%; }
@@ -54,7 +73,7 @@
 
   <!-- Offline Banner -->
   <div id="offlineBanner" role="alert">
-    <span>⚠️</span><span>Anda sedang offline. Data mungkin tidak ter-update.</span>
+    <span>⚠️</span><span>Anda sedang offline</span>
   </div>
 
   <div id="app">
@@ -63,25 +82,28 @@
       <a href="index.html" class="brand-mini" title="Kembali ke Beranda">
         <span class="dot"></span><span>E-Vote</span>
       </a>
+
       <nav id="nav" aria-label="Navigasi utama"></nav>
+
       <div class="userbox">
         <div id="userName">—</div>
         <small id="userRole">—</small>
-        <button class="btn-ghost btn-block" type="button" data-logout>
-          Keluar
-        </button>
+        
+        <!-- ✅ LOGOUT SEBAGAI LINK HTML BIASA (BUKAN BUTTON JS) -->
+        <a href="logout.html" class="btn-logout-link" id="btnForceLogout">
+          🚪 Keluar
+        </a>
       </div>
     </aside>
 
-    <!-- MAIN -->
+    <!-- MAIN CONTENT -->
     <main class="main">
       <header class="topbar">
         <button id="btnMenu" class="btn-ghost mobile-only" type="button" aria-label="Buka menu">☰</button>
         <h2 id="pageTitle">Dashboard</h2>
         <div class="topbar-actions">
           <button id="btnGlobalRefresh" class="btn-ghost" type="button" title="Refresh Data">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"></polyline>
               <polyline points="1 20 1 14 7 14"></polyline>
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
@@ -91,6 +113,7 @@
           <div id="clock" class="clock">—</div>
         </div>
       </header>
+
       <section id="view" class="view" role="main">
         <div class="card text-center" style="padding:40px">
           <div class="ui-spinner" style="margin:0 auto 16px"></div>
@@ -105,37 +128,31 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <!-- ============================================================
-       ✅ FAIL-SAFE LOGOUT (CAPTURE PHASE)
-       Diletakkan PALING ATAS sebelum script lain.
-       Menangkap SEMUA klik pada tombol [data-logout] dengan
-       prioritas tertinggi (Capture Phase = true).
+       FAIL-SAFE LOGOUT (Capture Phase)
+       Menangkap klik tombol logout SEBELUM apapun.
        ============================================================ -->
   <script>
   (function () {
     'use strict';
 
     document.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-logout]');
+      var btn = e.target.closest('#btnForceLogout, [data-logout]');
       if (!btn) return;
 
-      // Prevent default & stop propagation
       e.preventDefault();
       e.stopImmediatePropagation();
-      e.stopPropagation();
 
       // Bersihkan semua data
       try { localStorage.clear(); } catch (_) {}
       try { sessionStorage.clear(); } catch (_) {}
 
-      // Redirect ke login
+      // Pindah paksa ke login
       window.location.replace('login.html');
-    }, true); // ✅ TRUE = Capture Phase (Menang sebelum handler lain)
+    }, true); // TRUE = Capture Phase
   })();
   </script>
 
-  <!-- ============================================================
-       APP SCRIPTS (URUTAN WAJIB)
-       ============================================================ -->
+  <!-- APP SCRIPTS (URUTAN WAJIB) -->
   <script src="js/storage.js"></script>
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
@@ -145,18 +162,14 @@
   <script src="js/qr.js"></script>
   <script src="js/sign.js"></script>
 
-  <!-- Views -->
   <script src="js/views-admin.js"></script>
   <script src="js/views-petugas.js"></script>
   <script src="js/views-bilik.js"></script>
   <script src="js/views-coklit.js"></script>
 
-  <!-- Router (WAJIB PALING BAWAH) -->
   <script src="js/router.js"></script>
 
-  <!-- ============================================================
-       BOOTSTRAP: OFFLINE, SESSION GUARD, ANTI-FLASH
-       ============================================================ -->
+  <!-- BOOTSTRAP: SESSION GUARD, ANTI-FLASH, DEFAULT HASH -->
   <script>
   (function () {
     'use strict';
