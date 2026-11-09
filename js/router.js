@@ -1,6 +1,7 @@
 /* ============================================================
-   E-VOTE • router.js (FULL FIX - INSTANT RENDER)
+   E-VOTE • router.js (FULL FIX - FINAL)
    Hash-based SPA Router + Auth Guard + Role Guard + Cleanup.
+   Fitur: Instant Render, Preload, Anti-Looping, Logout External.
    ============================================================ */
 (function () {
   'use strict';
@@ -242,7 +243,7 @@
     try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); }
     catch (_) { window.scrollTo(0, 0); }
 
-    // ✅ TAMPILKAN SKELETON INSTAN (User merasa cepat)
+    // ✅ TAMPILKAN SKELETON INSTAN
     if (view) view.innerHTML = `<div class="card">${UI.skeleton(4)}</div>`;
 
     try {
@@ -294,8 +295,8 @@
     if (nav) nav.addEventListener('click', (e) => { if (e.target.closest('.nav-item')) closeSidebar(); });
 
     /* ============================================================
-     *  ⚠️ LOGOUT HANDLER DIPEGANG OLEH app.html (Capture Phase)
-     *  JANGAN pasang handler di sini untuk mencegah konflik.
+     *  ⚠️ LOGOUT DITANGANI OLEH logout.html
+     *  Tidak ada handler di sini untuk mencegah konflik.
      *  ============================================================ */
 
     const btnRefresh = document.getElementById('btnGlobalRefresh');
@@ -304,11 +305,11 @@
     startClock();
     window.addEventListener('hashchange', navigate);
 
-    // ✅ PRELOAD SEMUA DATA DI BACKGROUND (PARALLEL)
+    // ✅ PRELOAD SEMUA DATA DI BACKGROUND
     if (window.Cache && Cache.preloadAll) {
       setTimeout(function () {
         Cache.preloadAll().catch(function () {});
-      }, 800); // Delay singkat agar UI settle
+      }, 800);
     }
 
     window.addEventListener('beforeunload', () => { cleanup(); stopClock(); });
